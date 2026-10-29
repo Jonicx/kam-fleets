@@ -36,11 +36,17 @@ jobs:
 
       - name: Build project
         env:
-          VITE_NEON_AUTH_URL: ${{ vars.VITE_NEON_AUTH_URL }}
-          VITE_NEON_FUNCTION_HELLO_BASE_URL: ${{ vars.VITE_NEON_FUNCTION_HELLO_BASE_URL }}
+          VITE_NEON_AUTH_URL: ${{ vars.VITE_NEON_AUTH_URL || secrets.VITE_NEON_AUTH_URL }}
+          VITE_NEON_FUNCTION_HELLO_BASE_URL: ${{ vars.VITE_NEON_FUNCTION_HELLO_BASE_URL || secrets.VITE_NEON_FUNCTION_HELLO_BASE_URL }}
         run: |
-          test -n "$VITE_NEON_AUTH_URL"
-          test -n "$VITE_NEON_FUNCTION_HELLO_BASE_URL"
+          if [ -z "$VITE_NEON_AUTH_URL" ]; then
+            echo "::error::VITE_NEON_AUTH_URL is missing. Add it under Settings > Secrets and variables > Actions as a repository or environment variable/secret."
+            exit 1
+          fi
+          if [ -z "$VITE_NEON_FUNCTION_HELLO_BASE_URL" ]; then
+            echo "::error::VITE_NEON_FUNCTION_HELLO_BASE_URL is missing. Add it under Settings > Secrets and variables > Actions as a repository or environment variable/secret."
+            exit 1
+          fi
           npm run build
 
       - name: Setup Pages

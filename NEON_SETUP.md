@@ -20,4 +20,4 @@ The app uses the `production` branch of project `damp-scene-49503629` for Postgr
 
 Run `npm run db:migrate` to create the snapshot table using `DATABASE_URL_UNPOOLED`, then start the frontend with `npm run dev`. The Function uses its injected `DATABASE_URL`, `NEON_AUTH_BASE_URL`, and `NEON_AUTH_JWKS_URL`.
 
-For the GitHub Pages workflow, add repository Actions variables named `VITE_NEON_AUTH_URL` and `VITE_NEON_FUNCTION_HELLO_BASE_URL` with the corresponding public URLs. The workflow fails the build if either is missing. Never expose `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `NEON_API_KEY`, or auth signing credentials to frontend code.
+For the GitHub Pages workflow, add Actions variables named `VITE_NEON_AUTH_URL` and `VITE_NEON_FUNCTION_HELLO_BASE_URL` with the corresponding public URLs. The workflow also accepts those names as Actions secrets, but these `VITE_` values are compiled into the public frontend and are not confidential. The build fails with a clear error if either is missing. Never expose `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `NEON_API_KEY`, or auth signing credentials to frontend code.
