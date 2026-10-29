@@ -43,10 +43,10 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
   const availableDrivers = drivers.filter((d) => d.status === 'Available');
 
   // Form states
-  const [truckId, setTruckId] = useState(availableTrucks[0]?.id || '');
-  const [driverId, setDriverId] = useState(availableDrivers[0]?.id || '');
-  const [origin, setOrigin] = useState('Kigali Central Depot, Rwanda');
-  const [destination, setDestination] = useState('Mombasa Port Gateway, Kenya');
+  const [truckId, setTruckId] = useState('');
+  const [driverId, setDriverId] = useState('');
+  const [origin, setOrigin] = useState('');
+  const [destination, setDestination] = useState('');
 
   // Schedule dates (Default: departing tomorrow at 06:00, arriving 5 days later)
   const defaultStart = new Date();
@@ -66,19 +66,13 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
   const [scheduledEnd, setScheduledEnd] = useState(formatDateForInput(defaultEnd));
 
   // Financial allocations
-  const [budgetAllocated, setBudgetAllocated] = useState('3200');
-  const [driverPay, setDriverPay] = useState('450');
-  const [cargoType, setCargoType] = useState('30 Tons Industrial Cement & Steel Clamps');
-  const [notes, setNotes] = useState('Mandatory pre-departure weighbridge calibration check.');
+  const [budgetAllocated, setBudgetAllocated] = useState('');
+  const [driverPay, setDriverPay] = useState('');
+  const [cargoType, setCargoType] = useState('');
+  const [notes, setNotes] = useState('');
 
   // Initial Expenses list at launch
-  const [initialExpenses, setInitialExpenses] = useState<InitialExpenseInput[]>([
-    {
-      expense_type: 'Fuel',
-      amount: 600,
-      description: 'Initial 400L Diesel tank fill-up at dispatch terminal',
-    },
-  ]);
+  const [initialExpenses, setInitialExpenses] = useState<InitialExpenseInput[]>([]);
 
   // Initial Spare Parts list needed at launch
   const [initialSpareParts, setInitialSpareParts] = useState<InitialSparePartInput[]>([]);
@@ -706,7 +700,7 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
                       <label className="text-[10px] font-semibold text-slate-500 block mb-0.5">Amount (Tsh) *</label>
                       <input
                         type="number"
-                        min="0.01"
+                        min="0"
                         step="1"
                         required
                         value={exp.amount}

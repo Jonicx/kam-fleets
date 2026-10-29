@@ -123,11 +123,13 @@ export interface SparePart {
 
 export interface Invoice {
   id: string;
-  trip_id: string;
+  trip_id?: string;
+  driver_id?: string; // TEXT to match app_users.user_id
   invoice_number: string;
   amount: number;
   issued_at: string;
   due_at: string;
+  reason?: string;
   created_at: string;
   voided_at?: string;
   void_reason?: string;

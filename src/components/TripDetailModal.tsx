@@ -621,7 +621,7 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
                       <input
                         type="number"
                         step="1"
-                        min="0.01"
+                        min="0"
                         required
                         placeholder="e.g. 150.00"
                         value={expenseAmount}

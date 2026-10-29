@@ -43,7 +43,7 @@ export const SchemaStudioView: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'jcq_fleet_schema.sql';
+    a.download = 'kam_fleets_schema.sql';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -65,7 +65,7 @@ export const SchemaStudioView: React.FC = () => {
               <span>Database Architecture &amp; Engineering Studio</span>
             </div>
             <h1 className="text-2xl font-extrabold tracking-tight">
-              JCQ Relational Schema, Models &amp; Indexes
+              KAM Fleets Relational Schema, Models &amp; Indexes
             </h1>
             <p className="text-xs text-slate-300 mt-1 max-w-2xl">
               Production-ready PostgreSQL database definitions with referential integrity constraints,
@@ -583,7 +583,7 @@ export const SchemaStudioView: React.FC = () => {
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Interactive Query Runner</h3>
                 <p className="text-xs text-slate-500">
-                  Execute relational queries against the active JCQ database tables
+                  Execute relational queries against the active KAM Fleets database tables
                 </p>
               </div>
               <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
@@ -688,7 +688,7 @@ export const SchemaStudioView: React.FC = () => {
   );
 };
 
-const RAW_SQL_SCHEMA = `-- JCQ General Supply Company: PostgreSQL DDL Script
+const RAW_SQL_SCHEMA = `-- KAM Fleets: PostgreSQL DDL Script
 -- Tables: trucks, drivers, trips, trip_delay_logs, expenses, spare_parts
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

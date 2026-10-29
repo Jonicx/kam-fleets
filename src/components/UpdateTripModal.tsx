@@ -570,7 +570,7 @@ export const UpdateTripModal: React.FC<UpdateTripModalProps> = ({
                         <input
                           type="number"
                           step="1"
-                          min="0.01"
+                          min="0"
                           required
                           placeholder="0.00"
                           value={expenseAmount}
@@ -1252,9 +1252,10 @@ export const UpdateTripModal: React.FC<UpdateTripModalProps> = ({
             </button>
             <button
               onClick={onClose}
-              className=" rounded-lg bg-red-600 px-4 py-2 text-[11px] font-bold text-white transition hover:bg-slate-800 sm:text-xs"
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
+              aria-label="Close"
             >
-              Cancle
+              <X className="h-5 w-5" />
             </button>
           </div>
         </div>

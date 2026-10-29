@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create KAM Fleets PWA Icons</title>
+</head>
+<body>
+    <h1>Click the buttons below to generate and download the icons</h1>
+    <button onclick="downloadIcon(192)">Download 192x192 Icon</button>
+    <button onclick="downloadIcon(512)">Download 512x512 Icon</button>
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <script>
+        function downloadIcon(size) {
+            const canvas = document.getElementById('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            // Background
+            ctx.fillStyle = '#f59e0b';
+            ctx.fillRect(0, 0, size, size);
+
+            // Text
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `bold ${size * 0.32}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('KAM', size / 2, size / 2);
+
+            // Download
+            const link = document.createElement('a');
+            link.download = `icon-${size}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+    </script>
+</body>
+</html>

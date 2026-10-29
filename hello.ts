@@ -306,13 +306,17 @@ export default {
       if (route === 'PATCH /me') {
         const body = await readJson(request);
         const updates: { full_name?: string; phone_number?: string; profile_picture_id?: string } = {};
-        if (body.name) updates.full_name = body.name;
-        if (body.phone) updates.phone_number = body.phone;
-        if (body.profilePictureId) updates.profile_picture_id = body.profilePictureId;
+        if (typeof body.name === 'string' && body.name) updates.full_name = body.name;
+        if (typeof body.phone === 'string' && body.phone) updates.phone_number = body.phone;
+        if (typeof body.profilePictureId === 'string' && body.profilePictureId) updates.profile_picture_id = body.profilePictureId;
 
         const updated = await pool.query(
-          `UPDATE app_users SET full_name = COALESCE($2, full_name), phone_number = COALESCE($3, phone_number), profile_picture_id = COALESCE($4, profile_picture_id)
-           WHERE user_id = $1 RETURNING user_id, email, full_name, role, is_active, profile_picture_id`,
+          `UPDATE app_users
+           SET full_name = COALESCE($2, full_name),
+               phone_number = COALESCE($3, phone_number),
+               profile_picture_id = COALESCE($4, profile_picture_id)
+           WHERE user_id = $1
+           RETURNING user_id, email, full_name, role, is_active, profile_picture_id`,
           [user.id, updates.full_name, updates.phone_number, updates.profile_picture_id]
         );
         return jsonResponse({ user: toAppUser(updated.rows[0]) }, 200, corsHeaders);

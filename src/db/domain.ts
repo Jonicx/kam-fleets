@@ -344,7 +344,7 @@ export class FleetDomain {
     if (new Date(data.due_at).getTime() < new Date(data.issued_at).getTime()) {
       throw new Error('Invoice due date cannot be earlier than its issue date.');
     }
-    const invoiceNumber = data.invoice_number?.trim() || `JCQ-${new Date(this.nowMs()).getFullYear()}-${this.newId().slice(0, 8).toUpperCase()}`;
+    const invoiceNumber = data.invoice_number?.trim() || `KAM-${new Date(this.nowMs()).getFullYear()}-${this.newId().slice(0, 8).toUpperCase()}`;
     if (invoiceNumber.length > 80) throw new Error('Invoice number must be 80 characters or fewer.');
     if (this.invoices.some((invoice) => invoice.invoice_number.toLocaleLowerCase() === invoiceNumber.toLocaleLowerCase())) {
       throw new Error(`Invoice number "${invoiceNumber}" is already in use.`);
@@ -864,7 +864,7 @@ export class FleetDomain {
       }
     }
 
-    // 6. Instantiate new Trip with status automatically set to 'Ongoing'
+    // 6. Instantiate the trip as planned; dispatch is a separate status transition.
     const now = this.nowIso();
     const tripId = this.newId();
 
@@ -872,7 +872,7 @@ export class FleetDomain {
       id: tripId,
       truck_id: truck.id,
       driver_id: driver.id,
-      status: 'Ongoing', // automatically switch to 'Ongoing'
+      status: 'Planned',
       origin: payload.origin.trim(),
       destination: payload.destination.trim(),
       scheduled_start: new Date(payload.scheduled_start).toISOString(),
@@ -888,11 +888,7 @@ export class FleetDomain {
 
     this.trips.unshift(newTrip);
 
-    // 7. Atomically update corresponding Truck and Driver statuses to 'On Trip' to prevent double-booking
-    this.updateTruckStatusInternal(truck.id, 'On Trip');
-    this.updateDriverStatusInternal(driver.id, 'On Trip');
-
-    // 8. Insert initial expenses (if any)
+    // 7. Insert initial expenses (if any)
     if (payload.initial_expenses && payload.initial_expenses.length > 0) {
       for (const exp of payload.initial_expenses) {
         this.expenses.push({
@@ -907,7 +903,7 @@ export class FleetDomain {
       }
     }
 
-    // 9. Insert initial spare parts (if any)
+    // 8. Insert initial spare parts (if any)
     if (payload.initial_spare_parts && payload.initial_spare_parts.length > 0) {
       for (const sp of payload.initial_spare_parts) {
         this.spareParts.push({
@@ -916,7 +912,7 @@ export class FleetDomain {
           part_name: sp.part_name.trim(),
           price: Number(sp.price),
           description: sp.description?.trim() || 'Launch maintenance item',
-          replaced_by: 'JCQ Launch Inspection Depot',
+          replaced_by: 'KAM Fleets Launch Inspection Depot',
           timestamp: now,
           created_at: now,
         });
@@ -974,6 +970,14 @@ export class FleetDomain {
     // Handle status transitions
     if (updates.status && updates.status !== oldTrip.status) {
       if (newStatus === 'Ongoing') {
+        const truck = this.trucks.find((item) => item.id === effectiveTruckId);
+        const driver = this.drivers.find((item) => item.id === effectiveDriverId);
+        if (!truck || truck.status !== 'Available') {
+          throw new Error('The assigned truck must be Available before the trip can start.');
+        }
+        if (!driver || driver.status !== 'Available') {
+          throw new Error('The assigned driver must be Available before the trip can start.');
+        }
         this.updateTruckStatusInternal(effectiveTruckId, 'On Trip');
         this.updateDriverStatusInternal(effectiveDriverId, 'On Trip');
       } else if (newStatus === 'Completed') {

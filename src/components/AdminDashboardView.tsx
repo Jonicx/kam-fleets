@@ -12,6 +12,7 @@ import {
   UserRound,
   LayoutDashboard,
 } from 'lucide-react';
+import { AuditDetailModal } from './AuditDetailModal.tsx';
 import {
   EnrichedTrip,
   Driver,
@@ -66,7 +67,7 @@ const dateInputValue = (date: Date) => {
 const getRecordedTripCosts = (trip: EnrichedTrip) =>
   trip.total_expenses +
   trip.total_spare_parts +
-  (trip.status === 'Completed' ? Number(trip.driver_pay || 0) : 0);
+  Number(trip.driver_pay || 0);
 
 const escapeCsvValue = (value: string | number) =>
   `"${String(value).replaceAll('"', '""')}"`;
@@ -98,6 +99,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [customTo, setCustomTo] = useState('');
   const [expandedTripId, setExpandedTripId] = useState<string | null>(null);
   const [invoiceTripId, setInvoiceTripId] = useState('');
+  const [invoiceDriverId, setInvoiceDriverId] = useState('');
+  const [invoiceLinkedTripId, setInvoiceLinkedTripId] = useState('');
+  const [invoiceType, setInvoiceType] = useState<'trip' | 'driver'>('trip');
+  const [invoiceReason, setInvoiceReason] = useState('');
   const [invoiceAmount, setInvoiceAmount] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceIssuedAt, setInvoiceIssuedAt] = useState(() => dateInputValue(new Date()));
@@ -113,6 +118,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [paymentPaidAt, setPaymentPaidAt] = useState(() => dateInputValue(new Date()));
   const [accountingError, setAccountingError] = useState('');
   const [accountingSuccess, setAccountingSuccess] = useState('');
+  const [selectedAuditLog, setSelectedAuditLog] = useState<AuditLog | null>(null);
 
   useEffect(() => {
     const now = new Date();
@@ -205,11 +211,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     const profitableTrips = completedTrips.filter((trip) => trip.profit_loss >= 0).length;
     const lossTrips = completedTrips.length - profitableTrips;
     const reportInvoices = invoices.filter((invoice) =>
-      statusTripIds.has(invoice.trip_id) && isWithinRange(invoice.issued_at, reportRange),
+      (invoice.trip_id && statusTripIds.has(invoice.trip_id) || invoice.driver_id) && isWithinRange(invoice.issued_at, reportRange),
     );
     const invoicedAmount = reportInvoices.reduce((total, invoice) => total + Number(invoice.amount), 0);
-    const reportTripInvoices = invoices.filter((invoice) => statusTripIds.has(invoice.trip_id));
-    const invoiceIds = new Set(reportTripInvoices.map((invoice) => invoice.id));
+    const reportTripInvoices = invoices.filter((invoice) => invoice.trip_id && statusTripIds.has(invoice.trip_id));
+    const reportDriverInvoices = invoices.filter((invoice) => invoice.driver_id && !invoice.trip_id);
+    const invoiceIds = new Set([...reportTripInvoices, ...reportDriverInvoices].map((invoice) => invoice.id));
     const collectedCash = payments
       .filter((payment) => invoiceIds.has(payment.invoice_id) && isWithinRange(payment.paid_at, reportRange))
       .reduce((total, payment) => total + Number(payment.amount), 0);
@@ -257,7 +264,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       }
     }
 
-    for (const invoice of reportTripInvoices) {
+    for (const invoice of [...reportTripInvoices, ...reportDriverInvoices]) {
       const key = monthKey(invoice.issued_at);
       const month = key ? monthByKey.get(key) : undefined;
       if (month && isWithinRange(invoice.issued_at, reportRange)) {
@@ -266,7 +273,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     }
 
     for (const payment of payments) {
-      const invoice = reportTripInvoices.find((item) => item.id === payment.invoice_id);
+      const invoice = [...reportTripInvoices, ...reportDriverInvoices].find((item) => item.id === payment.invoice_id);
       const key = monthKey(payment.paid_at);
       const month = key ? monthByKey.get(key) : undefined;
       if (invoice && month && isWithinRange(payment.paid_at, reportRange)) {
@@ -413,9 +420,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     };
     return priority(left.title) - priority(right.title);
   });
-  const completedTripsForInvoice = trips.filter((trip) => trip.status === 'Completed');
+  const completedTripsForInvoice = trips.filter((trip) => trip.status === 'Completed' || trip.status === 'Ongoing');
   const selectedInvoiceTrip = completedTripsForInvoice.find((trip) => trip.id === invoiceTripId)
     || completedTripsForInvoice[0];
+  const selectedInvoiceDriver = drivers.find((driver) => driver.id === invoiceDriverId);
+  const selectedInvoiceLinkedTrip = trips.find((trip) => trip.id === invoiceLinkedTripId);
   const availablePaymentInvoices = invoices.filter((invoice) => {
     const paid = payments
       .filter((payment) => payment.invoice_id === invoice.id)
@@ -447,26 +456,49 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     event.preventDefault();
     setAccountingError('');
     setAccountingSuccess('');
-    if (!selectedInvoiceTrip) {
-      setAccountingError('Complete a trip before issuing an invoice.');
-      return;
-    }
     const amount = Number(invoiceAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
-      setAccountingError('Enter the billed amount, or explicitly choose the trip budget estimate.');
+      setAccountingError('Enter the billed amount.');
       return;
     }
     try {
-      onCreateInvoice({
-        trip_id: selectedInvoiceTrip.id,
-        invoice_number: invoiceNumber,
-        amount,
-        issued_at: new Date(`${invoiceIssuedAt}T12:00:00`).toISOString(),
-        due_at: new Date(`${invoiceDueAt}T23:59:59`).toISOString(),
-      });
-      setAccountingSuccess(`Invoice recorded for ${formatTsh(amount)}.`);
+      if (invoiceType === 'trip') {
+        if (!selectedInvoiceTrip) {
+          setAccountingError('Please select a trip.');
+          return;
+        }
+        onCreateInvoice({
+          trip_id: selectedInvoiceTrip.id,
+          invoice_number: invoiceNumber,
+          amount,
+          issued_at: new Date(`${invoiceIssuedAt}T12:00:00`).toISOString(),
+          due_at: new Date(`${invoiceDueAt}T23:59:59`).toISOString(),
+        });
+        setAccountingSuccess(`Invoice recorded for ${formatTsh(amount)}.`);
+      } else {
+        if (!selectedInvoiceDriver) {
+          setAccountingError('Please select a driver.');
+          return;
+        }
+        if (!invoiceReason.trim()) {
+          setAccountingError('Please provide a reason for the driver invoice.');
+          return;
+        }
+        onCreateInvoice({
+          driver_id: selectedInvoiceDriver.id,
+          trip_id: invoiceLinkedTripId || undefined,
+          invoice_number: invoiceNumber,
+          amount,
+          reason: invoiceReason,
+          issued_at: new Date(`${invoiceIssuedAt}T12:00:00`).toISOString(),
+          due_at: new Date(`${invoiceDueAt}T23:59:59`).toISOString(),
+        });
+        setAccountingSuccess(`Driver invoice recorded for ${formatTsh(amount)}.`);
+      }
       setInvoiceAmount('');
       setInvoiceNumber('');
+      setInvoiceReason('');
+      setInvoiceLinkedTripId('');
       setInvoiceIssuedAt(dateInputValue(new Date()));
     } catch (error) {
       setAccountingError(error instanceof Error ? error.message : 'Invoice could not be created.');
@@ -561,7 +593,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     const url = URL.createObjectURL(file);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `jcq-trip-ledger-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `kam-fleets-trip-ledger-${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -799,6 +831,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           reportInvoices={analytics.reportInvoices}
           reportTripInvoices={analytics.reportTripInvoices}
           trips={trips}
+          drivers={drivers}
           payments={payments}
           reportRange={reportRange}
           completedTripsForInvoice={completedTripsForInvoice}
@@ -806,6 +839,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           invoiceAmount={invoiceAmount}
           onInvoiceAmountChange={setInvoiceAmount}
           onInvoiceTripIdChange={setInvoiceTripId}
+          onInvoiceDriverIdChange={setInvoiceDriverId}
+          onInvoiceLinkedTripIdChange={setInvoiceLinkedTripId}
+          invoiceReason={invoiceReason}
+          onInvoiceReasonChange={setInvoiceReason}
           invoiceNumber={invoiceNumber}
           onInvoiceNumberChange={setInvoiceNumber}
           invoiceIssuedAt={invoiceIssuedAt}
@@ -832,6 +869,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           allPayments={allPayments}
           onVoidInvoice={onVoidInvoice}
           onReversePayment={onReversePayment}
+          invoiceType={invoiceType}
+          onInvoiceTypeChange={setInvoiceType}
+          selectedInvoiceDriver={selectedInvoiceDriver}
+          selectedInvoiceLinkedTrip={selectedInvoiceLinkedTrip}
         />
       )}
 
@@ -936,8 +977,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               })
               .slice(0, 30)
               .map((log) => (
-                <details key={log.id} className="px-4 py-3 sm:px-5">
-                  <summary className="flex cursor-pointer list-none flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
+                <div key={log.id} className="px-4 py-3 sm:px-5 border-b border-slate-100 last:border-0">
+                  <button
+                    onClick={() => setSelectedAuditLog(log)}
+                    className="w-full text-left flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between hover:bg-slate-50 rounded px-2 py-1 transition-colors"
+                  >
                     <span className="min-w-0">
                       <span className="block text-xs font-bold text-slate-800">{log.summary}</span>
                       <span className="mt-1 block text-[10px] text-slate-500">
@@ -945,11 +989,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       </span>
                     </span>
                     <time className="shrink-0 text-[10px] text-slate-500">{new Date(log.timestamp).toLocaleString()}</time>
-                  </summary>
-                  {log.details && (
-                    <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-50 p-2 text-[10px] leading-relaxed text-slate-600">{log.details}</pre>
-                  )}
-                </details>
+                  </button>
+                </div>
               ))}
             {auditLogs.filter((log) => isWithinRange(log.timestamp, reportRange)).length === 0 && (
               <p className="px-4 py-8 text-center text-xs text-slate-500">No audit activity in this date range.</p>
@@ -962,6 +1003,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
         <TeamAccessPanel />
       </section>}
+
+      {/* Audit Detail Modal */}
+      <AuditDetailModal
+        isOpen={selectedAuditLog !== null}
+        onClose={() => setSelectedAuditLog(null)}
+        auditLog={selectedAuditLog}
+      />
         </div>
       </div>
     </div>

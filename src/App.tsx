@@ -12,12 +12,8 @@ import { TripEditModal } from './components/TripEditModal.tsx';
 import { NeonAuthGate } from './components/NeonAuthGate.tsx';
 import { ProfileModal } from './components/ProfileModal.tsx';
 import { dbStore } from './db/store.ts';
-import { UserProvider, useUser } from "./contexts/UserContext";
-import { updateCurrentUser } from './neon.ts';
-
-interface FleetTripManagerAppProps {
-  signOutFn: (() => Promise<void>) | null;
-}
+import { UserProvider, useUser } from './contexts/UserContext.tsx';
+import { neonAuthClient, updateCurrentUser } from './neon.ts';
 
 const AdminDashboardView = lazy(() =>
   import('./components/AdminDashboardView.tsx').then((module) => ({ default: module.AdminDashboardView })),
@@ -54,7 +50,19 @@ function FleetTripManagerApp() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetSuccessToast, setResetSuccessToast] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [signOutFn, setSignOutFn] = useState<(() => Promise<void>) | null>(null);
+
+  const handleSignOut = async () => {
+    try {
+      const result = await neonAuthClient.signOut();
+      if (result.error) {
+        console.error('Sign out error:', result.error);
+      }
+      window.location.reload();
+    } catch (error) {
+      console.error('Sign out failed:', error);
+      window.location.reload();
+    }
+  };
 
   // Reactive DB store state
   const [trucks, setTrucks] = useState<Truck[]>(() => dbStore.getTrucks());
@@ -109,7 +117,7 @@ function FleetTripManagerApp() {
         userName={userName}
         userEmail={userEmail}
         profilePictureId={profilePictureId}
-        onSignOut={signOutFn ? () => signOutFn() : undefined}
+        onSignOut={handleSignOut}
         onOpenProfile={() => setShowProfileModal(true)}
         isSticky={activeTab !== 'admin'}
         isAdmin={isAdmin}
@@ -340,7 +348,7 @@ function FleetTripManagerApp() {
 export default function App() {
   return (
     <UserProvider>
-      <NeonAuthGate onSignOutReady={setSignOutFn}>
+      <NeonAuthGate>
         <FleetTripManagerApp />
       </NeonAuthGate>
     </UserProvider>

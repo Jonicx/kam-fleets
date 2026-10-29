@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Receipt } from 'lucide-react';
-import { EnrichedTrip, Invoice, Payment, PaymentMethod } from '../types/database.ts';
+import { EnrichedTrip, Invoice, Payment, PaymentMethod, Driver } from '../types/database.ts';
 import { formatTsh } from '../utils/currency.ts';
 import { AccountingMetric } from './AdminDashboardPrimitives.tsx';
 import { DateRange, formatDate, getInvoiceStatus, isWithinRange } from './adminDashboardUtils.ts';
@@ -14,6 +14,7 @@ interface AdminBillingSectionProps {
   reportInvoices: Invoice[];
   reportTripInvoices: Invoice[];
   trips: EnrichedTrip[];
+  drivers: Driver[];
   payments: Payment[];
   reportRange: DateRange;
   completedTripsForInvoice: EnrichedTrip[];
@@ -21,6 +22,10 @@ interface AdminBillingSectionProps {
   invoiceAmount: string;
   onInvoiceAmountChange: (value: string) => void;
   onInvoiceTripIdChange: (value: string) => void;
+  onInvoiceDriverIdChange: (value: string) => void;
+  onInvoiceLinkedTripIdChange: (value: string) => void;
+  invoiceReason: string;
+  onInvoiceReasonChange: (value: string) => void;
   invoiceNumber: string;
   onInvoiceNumberChange: (value: string) => void;
   invoiceIssuedAt: string;
@@ -47,6 +52,10 @@ interface AdminBillingSectionProps {
   allPayments: Payment[];
   onVoidInvoice: (invoiceId: string, reason: string) => void;
   onReversePayment: (paymentId: string, reason: string) => void;
+  invoiceType: 'trip' | 'driver';
+  onInvoiceTypeChange: (value: 'trip' | 'driver') => void;
+  selectedInvoiceDriver?: Driver;
+  selectedInvoiceLinkedTrip?: EnrichedTrip;
 }
 
 export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
@@ -56,6 +65,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
   reportInvoices,
   reportTripInvoices,
   trips,
+  drivers,
   payments,
   reportRange,
   completedTripsForInvoice,
@@ -63,6 +73,10 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
   invoiceAmount,
   onInvoiceAmountChange,
   onInvoiceTripIdChange,
+  onInvoiceDriverIdChange,
+  onInvoiceLinkedTripIdChange,
+  invoiceReason,
+  onInvoiceReasonChange,
   invoiceNumber,
   onInvoiceNumberChange,
   invoiceIssuedAt,
@@ -89,6 +103,10 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
   allPayments,
   onVoidInvoice,
   onReversePayment,
+  invoiceType,
+  onInvoiceTypeChange,
+  selectedInvoiceDriver,
+  selectedInvoiceLinkedTrip,
 }) => {
   const [voidingInvoice, setVoidingInvoice] = useState<Invoice | null>(null);
   const [reversingPayment, setReversingPayment] = useState<Payment | null>(null);
@@ -96,10 +114,11 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
   const paidFor = (invoiceId: string) =>
     payments.filter((payment) => payment.invoice_id === invoiceId).reduce((sum, payment) => sum + Number(payment.amount), 0);
   const tripFor = (invoice: Invoice) => trips.find((item) => item.id === invoice.trip_id);
+  const driverFor = (invoice: Invoice) => drivers.find((item) => item.id === invoice.driver_id);
   const handlePrint = (invoice: Invoice) => {
     setActionError('');
     try {
-      printInvoice(invoice, tripFor(invoice), paidFor(invoice.id));
+      printInvoice(invoice, tripFor(invoice), driverFor(invoice), paidFor(invoice.id));
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'The invoice could not be printed.');
     }
@@ -304,28 +323,99 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
         <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <form onSubmit={onCreateInvoice} className="space-y-3">
             <h3 className="text-xs font-bold text-slate-900">Issue an invoice</h3>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-              Completed trip
-              <select
-                value={selectedInvoiceTrip?.id || ''}
-                onChange={(event) => {
-                  onInvoiceTripIdChange(event.target.value);
-                  onInvoiceAmountChange('');
-                }}
-                required
-                className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium normal-case tracking-normal text-slate-700"
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => onInvoiceTypeChange('trip')}
+                className={`flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+                  invoiceType === 'trip'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
               >
-                <option value="" disabled>Select a completed trip</option>
-                {completedTripsForInvoice.map((trip) => (
-                  <option key={trip.id} value={trip.id}>{trip.origin} → {trip.destination} · {formatTsh(trip.budget_allocated)}</option>
-                ))}
-              </select>
-            </label>
+                Trip Invoice
+              </button>
+              <button
+                type="button"
+                onClick={() => onInvoiceTypeChange('driver')}
+                className={`flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+                  invoiceType === 'driver'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                Driver Invoice
+              </button>
+            </div>
+            {invoiceType === 'trip' && (
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Trip (Completed or Ongoing)
+                <select
+                  value={selectedInvoiceTrip?.id || ''}
+                  onChange={(event) => {
+                    onInvoiceTripIdChange(event.target.value);
+                    onInvoiceAmountChange('');
+                  }}
+                  required
+                  className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium normal-case tracking-normal text-slate-700"
+                >
+                  <option value="" disabled>Select a trip</option>
+                  {completedTripsForInvoice.map((trip) => (
+                    <option key={trip.id} value={trip.id}>{trip.origin} → {trip.destination} · {formatTsh(trip.budget_allocated)} ({trip.status})</option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {invoiceType === 'driver' && (
+              <>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Driver
+                  <select
+                    value={selectedInvoiceDriver?.id || ''}
+                    onChange={(event) => {
+                      onInvoiceDriverIdChange(event.target.value);
+                      onInvoiceAmountChange('');
+                    }}
+                    required
+                    className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium normal-case tracking-normal text-slate-700"
+                  >
+                    <option value="" disabled>Select a driver</option>
+                    {drivers.map((driver) => (
+                      <option key={driver.id} value={driver.id}>{driver.full_name} · {driver.phone}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Reason
+                  <input
+                    type="text"
+                    value={invoiceReason}
+                    onChange={(event) => onInvoiceReasonChange(event.target.value)}
+                    required
+                    placeholder="Describe the reason for this invoice"
+                    className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium normal-case tracking-normal text-slate-700"
+                  />
+                </label>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Link to trip (optional)
+                  <select
+                    value={selectedInvoiceLinkedTrip?.id || ''}
+                    onChange={(event) => onInvoiceLinkedTripIdChange(event.target.value)}
+                    className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium normal-case tracking-normal text-slate-700"
+                  >
+                    <option value="">No trip linked</option>
+                    {trips.map((trip) => (
+                      <option key={trip.id} value={trip.id}>{trip.origin} → {trip.destination} · {trip.status}</option>
+                    ))}
+                  </select>
+                </label>
+              </>
+            )}
             <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
               Invoice amount (Tsh)
               <input
                 type="number"
-                min="0.01"
+                min="0"
                 step="1"
                 value={invoiceAmount}
                 onChange={(event) => onInvoiceAmountChange(event.target.value)}
@@ -419,7 +509,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
                   Amount (Tsh)
                   <input
                     type="number"
-                    min="0.01"
+                    min="0"
                     step="1"
                     max={selectedPaymentBalance}
                     value={paymentAmount}

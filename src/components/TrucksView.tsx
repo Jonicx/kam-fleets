@@ -667,7 +667,7 @@ export const TrucksView: React.FC<TrucksViewProps> = ({
                     <input
                       id="service-price"
                       type="number"
-                      min="0.01"
+                      min="0"
                       step="1"
                       required
                       placeholder="e.g. 150000"

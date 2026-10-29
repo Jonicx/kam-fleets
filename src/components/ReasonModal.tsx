@@ -1,4 +1,5 @@
 import React, { FormEvent, useState } from 'react';
+import { X } from 'lucide-react';
 
 interface ReasonModalProps {
   title: string;
@@ -31,8 +32,16 @@ export const ReasonModal: React.FC<ReasonModalProps> = ({ title, description, co
       className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4"
       onKeyDown={(event) => event.key === 'Escape' && onClose()}
     >
-      <form onSubmit={submit} className="modal-readable bg-white rounded-2xl p-6 max-w-md w-full border border-slate-200 shadow-2xl space-y-4">
-        <h3 id="reason-modal-title" className="text-base font-bold text-slate-900">{title}</h3>
+      <form onSubmit={submit} className="modal-readable bg-white rounded-2xl p-6 max-w-md w-full border border-slate-200 shadow-2xl space-y-4 relative">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-4 right-4 p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+          aria-label="Close"
+        >
+          <X className="h-4 w-4" />
+        </button>
+        <h3 id="reason-modal-title" className="text-base font-bold text-slate-900 pr-8">{title}</h3>
         <p className="text-xs text-slate-600 leading-relaxed">{description}</p>
         <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
           Reason

@@ -2,12 +2,13 @@ import React, { FormEvent, useCallback, useEffect, useState, useSyncExternalStor
 import { dbStore } from '../db/store.ts';
 import { checkNeonHealth, fetchCurrentMember, neonAuthClient, teamBackend, type TeamMember } from '../neon.ts';
 import { useUser } from "../contexts/UserContext";
+import { usePWAInstall } from '../hooks/usePWAInstall';
+import { Download, Wifi, WifiOff } from 'lucide-react';
 
 interface NeonAuthGateProps {
   children: React.ReactNode;
   onSignOut?: () => void;
   onOpenProfile?: () => void;
-  onSignOutReady?: (signOut: () => Promise<void>) => void;
 }
 
 type AuthMode = 'sign-in' | 'sign-up' | 'forgot' | 'reset';
@@ -27,7 +28,45 @@ const useSyncState = () =>
     () => `${dbStore.getSyncStatus()}|${dbStore.getPendingChangeCount()}`,
   );
 
-export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut, onOpenProfile, onSignOutReady }) => {
+const memberCacheKey = (userId: string) => `jcq_fleet_member_v1_${encodeURIComponent(userId)}`;
+
+const readCachedMember = (userId: string): TeamMember | null => {
+  try {
+    const stored = localStorage.getItem(memberCacheKey(userId));
+    if (!stored) return null;
+
+    const member: unknown = JSON.parse(stored);
+    if (
+      typeof member !== 'object' ||
+      member === null ||
+      !('id' in member) ||
+      member.id !== userId ||
+      !('email' in member) ||
+      typeof member.email !== 'string' ||
+      !('role' in member) ||
+      (member.role !== 'Admin' && member.role !== 'Dispatcher') ||
+      !('active' in member) ||
+      member.active !== true
+    ) {
+      return null;
+    }
+
+    return member as TeamMember;
+  } catch (cacheError) {
+    console.warn('Failed to restore the cached workspace profile:', cacheError);
+    return null;
+  }
+};
+
+const cacheMember = (member: TeamMember) => {
+  try {
+    localStorage.setItem(memberCacheKey(member.id), JSON.stringify(member));
+  } catch (cacheError) {
+    console.warn('Failed to cache the workspace profile for offline use:', cacheError);
+  }
+};
+
+export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut, onOpenProfile }) => {
   const { setUserInfo } = useUser();
   const [member, setMember] = useState<TeamMember | null>(null);
   const [pendingMember, setPendingMember] = useState<TeamMember | null>(null);
@@ -41,25 +80,72 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [remoteError, setRemoteError] = useState('');
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const syncState = useSyncState();
   const [syncStatus, pendingCount] = syncState.split('|') as [keyof typeof SYNC_LABELS, string];
+  const { isInstallable, isInstalled, promptInstall } = usePWAInstall();
+
+  const activateCachedMember = (userId: string) => {
+    const cachedMember = readCachedMember(userId);
+    if (!cachedMember) {
+      setError('Your saved workspace profile is unavailable offline. Reconnect to restore your account.');
+      return false;
+    }
+
+    setPendingMember(null);
+    setMember(cachedMember);
+    setUserInfo({
+      userName: cachedMember.name || cachedMember.email,
+      userEmail: cachedMember.email,
+      userRole: cachedMember.role,
+      profilePictureId: cachedMember.profilePictureId,
+    });
+    return true;
+  };
+
+  // Handle online/offline status
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const activateUser = async () => {
     setIsLoading(true);
     setError('');
     try {
+      const sessionResult = await neonAuthClient.getSession();
+      const sessionUser = sessionResult.data?.user;
+
+      if (!navigator.onLine) {
+        if (sessionUser) {
+          activateCachedMember(sessionUser.id);
+          return;
+        }
+        setError('You are offline and there is no saved workspace session available.');
+        return;
+      }
+
       await checkNeonHealth();
       const current = await fetchCurrentMember();
-      
+
       // Null-safety Check: Halts processing safely if workspace membership info record is completely missing
       if (!current) {
         throw new Error('Your user profile account record could not be loaded from the team roster table.');
       }
-      
+
       if (!current.active) {
         setPendingMember(current);
         return;
       }
+      cacheMember(current);
       await dbStore.connectRemote(current.id, teamBackend, {
         role: current.role,
         actorName: current.name || current.email,
@@ -74,7 +160,18 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
         profilePictureId: current.profilePictureId,
       });
     } catch (activationError) {
-      setError(activationError instanceof Error ? activationError.message : 'Could not connect to Neon.');
+      // Handle offline/network errors gracefully
+      if (activationError instanceof Error && /fetch|network|ERR_INTERNET_DISCONNECTED|failed to fetch|Service Unavailable/i.test(activationError.message)) {
+        const sessionResult = await neonAuthClient.getSession();
+        const sessionUser = sessionResult.data?.user;
+        if (sessionUser) {
+          if (activateCachedMember(sessionUser.id)) return;
+        } else {
+          setError('Unable to connect. Please check your internet connection and try again.');
+        }
+      } else {
+        setError(activationError instanceof Error ? activationError.message : 'Could not connect to Neon.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -100,13 +197,6 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
       dbStore.disconnectRemote();
     };
   }, []);
-
-  // Expose signOut function to parent component
-  useEffect(() => {
-    if (onSignOutReady) {
-      onSignOutReady(signOut);
-    }
-  }, [onSignOutReady, signOut]);
 
   const switchMode = (next: AuthMode) => {
     setMode(next);
@@ -190,7 +280,7 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
         <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8">
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-600">JCQ Enterprise</p>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-600">KAM Fleets</p>
           <h1 className="mt-2 text-2xl font-extrabold text-slate-900">Waiting for approval</h1>
           <p className="mt-2 text-sm text-slate-600">
             <strong className="text-slate-900">{pendingMember.email}</strong> is signed in, but an administrator needs to approve
@@ -236,13 +326,32 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
       <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
         <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8">
           <div className="mb-6">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-600">JCQ Enterprise</p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-600">KAM Fleets</p>
+              <div className="flex items-center gap-1.5">
+                {isOnline ? (
+                  <Wifi className="h-4 w-4 text-emerald-600" />
+                ) : (
+                  <WifiOff className="h-4 w-4 text-rose-600" />
+                )}
+                <span className="text-[10px] font-semibold text-slate-600">
+                  {isOnline ? 'Online' : 'Offline'}
+                </span>
+              </div>
+            </div>
             <h1 className="mt-2 text-2xl font-extrabold text-slate-900">{titles[mode]}</h1>
             <p className="mt-2 text-sm text-slate-500">
               {mode === 'sign-up'
                 ? 'New accounts can see team data once an administrator approves them.'
                 : 'Your team shares one fleet workspace, secured with Neon Auth and saved to Neon Postgres.'}
             </p>
+            {!isOnline && (
+              <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+                <p className="text-xs font-semibold text-amber-800">
+                  You're offline. Some features may not be available until you reconnect.
+                </p>
+              </div>
+            )}
           </div>
           <form onSubmit={submit} className="space-y-4">
             {mode === 'sign-up' && (
@@ -299,6 +408,16 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
             )}
             {error && <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">{error}</p>}
             {message && <p role="status" className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">{message}</p>}
+            {isInstallable && !isInstalled && (
+              <button
+                type="button"
+                onClick={promptInstall}
+                className="w-full rounded-lg bg-amber-500 px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-amber-400 flex items-center justify-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Install App
+              </button>
+            )}
             <button
               type="submit"
               disabled={isSubmitting}
@@ -312,7 +431,7 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
             onClick={() => switchMode(mode === 'sign-in' ? 'sign-up' : 'sign-in')}
             className="mt-4 w-full text-center text-xs font-semibold text-slate-600 hover:text-slate-900"
           >
-            {mode === 'sign-in' ? 'New to JCQ Enterprise? Create an account' : 'Back to sign in'}
+            {mode === 'sign-in' ? 'New to KAM Fleets? Create an account' : 'Back to sign in'}
           </button>
         </section>
       </main>

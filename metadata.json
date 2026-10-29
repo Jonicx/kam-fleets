@@ -1,6 +1,6 @@
 {
-  "name": "JCQ Fleet & Trip Manager",
-  "description": "Database schema, model architecture, and operations system for JCQ General Supply Company truck, driver, trip, expense, and spare parts management.",
+  "name": "KAM Fleets",
+  "description": "KAM Fleets operations system for managing trucks, drivers, trips, expenses, and spare parts.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

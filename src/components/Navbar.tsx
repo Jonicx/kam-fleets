@@ -67,9 +67,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
             <div className="flex flex-col items-start space-y-0.5">
               <div className="flex flex-row items-start space-x-2">
-                <span className="font-extrabold text-md tracking-tight text-white">JCQ</span>
+                <span className="font-extrabold text-md tracking-tight text-white">KAM</span>
                 <span className="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-semibold border border-amber-500/30 shadow-md shadow-orange-500/20">
-                  Enterprise
+                  Fleets
                 </span>
               </div>
               {userName && (

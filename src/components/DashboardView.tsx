@@ -14,6 +14,7 @@ import {
   ShieldAlert,
   ChevronDown,
   ChevronRight,
+  Plus,
 } from 'lucide-react';
 import { EnrichedTrip, DatabaseStats } from '../types/database.ts';
 import { formatTsh } from '../utils/currency.ts';
@@ -85,6 +86,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               Realtime haulage management tracking trucks, drivers, ongoing trips, dynamic delay logs,
               transit expenses, and roadside spare parts & maintenance.
             </p>
+            <button
+              type="button"
+              onClick={onOpenNewTrip}
+              className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-amber-400"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Plan New Trip</span>
+            </button>
           </div>
         </div>
       </div>
@@ -496,7 +505,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span>Relational Integrity Rules</span>
             </div>
             <h4 className="text-sm font-bold text-white mb-2">
-              JCQ Database Model Structure
+              KAM Fleets Database Model Structure
             </h4>
             <ul className="text-xs text-slate-300 space-y-2 mb-4">
               <li className="flex items-start space-x-2">
