@@ -1,12 +1,29 @@
-const CACHE_NAME = 'jcq-fleet-shell-v2';
-const RUNTIME_CACHE = 'jcq-fleet-runtime-v2';
+const CACHE_NAME = 'kam-fleets-shell-v3';
+const RUNTIME_CACHE = 'kam-fleets-runtime-v3';
 const APP_BASE = '/kam-fleets/';
 const APP_SHELL = [APP_BASE, `${APP_BASE}index.html`, `${APP_BASE}manifest.json`];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
+    fetch(new URL('vite-manifest.json', new URL(APP_BASE, self.location.origin)))
+      .then((response) => {
+        if (!response.ok) throw new Error(`Could not load the build manifest: HTTP ${response.status}`);
+        return response.json();
+      })
+      .then((manifest) => {
+        const appBaseUrl = new URL(APP_BASE, self.location.origin);
+        const precacheUrls = new Set(APP_SHELL);
+        for (const asset of Object.values(manifest).flatMap((entry) => [
+          entry.file,
+          ...(entry.css || []),
+          ...(entry.assets || []),
+        ])) {
+          if (typeof asset === 'string' && !/^(?:[a-z]+:|\/\/|data:)/i.test(asset)) {
+            precacheUrls.add(new URL(asset, appBaseUrl).pathname);
+          }
+        }
+        return caches.open(CACHE_NAME).then((cache) => cache.addAll([...precacheUrls]));
+      })
       .then(() => self.skipWaiting())
   );
 });
@@ -53,7 +70,7 @@ self.addEventListener('fetch', (event) => {
             .then((response) => {
               if (response && response.status === 200) {
                 const responseClone = response.clone();
-                caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, responseClone));
+                return caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, responseClone)).then(() => response);
               }
               return response;
             })

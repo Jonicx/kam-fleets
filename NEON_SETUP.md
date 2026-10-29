@@ -7,6 +7,7 @@ The app uses the `production` branch of project `damp-scene-49503629` for Postgr
 - Neon Auth protects the app with email/password sign-in and signup.
 - The `hello` Neon Function verifies each request's Neon Auth JWT against the branch JWKS before reading or writing that user's snapshot.
 - Fleet records are stored in `app_user_state` as one JSONB snapshot per authenticated user. Neon Postgres is the source of truth; browser localStorage is a per-user cache.
+- The app shell and all built JavaScript/CSS chunks are precached for offline startup. Previously loaded team data is available offline and edits are queued locally until Neon is reachable again; authentication and syncing still require a network connection.
 - Existing local demo data is imported into the first account that connects. Subsequent accounts receive their own sample dataset.
 - The function exposes `/health` for a PostgreSQL connectivity check and `/snapshot` for authenticated snapshot reads/writes.
 

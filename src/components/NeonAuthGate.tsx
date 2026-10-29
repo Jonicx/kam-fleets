@@ -28,11 +28,13 @@ const useSyncState = () =>
     () => `${dbStore.getSyncStatus()}|${dbStore.getPendingChangeCount()}`,
   );
 
-const memberCacheKey = (userId: string) => `jcq_fleet_member_v1_${encodeURIComponent(userId)}`;
+const memberCacheKey = (userId: string) => `kam_fleets_member_v1_${encodeURIComponent(userId)}`;
+const legacyMemberCacheKey = (userId: string) => `jcq_fleet_member_v1_${encodeURIComponent(userId)}`;
 
 const readCachedMember = (userId: string): TeamMember | null => {
   try {
-    const stored = localStorage.getItem(memberCacheKey(userId));
+    const stored = localStorage.getItem(memberCacheKey(userId)) ??
+      localStorage.getItem(legacyMemberCacheKey(userId));
     if (!stored) return null;
 
     const member: unknown = JSON.parse(stored);
@@ -85,13 +87,18 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
   const [syncStatus, pendingCount] = syncState.split('|') as [keyof typeof SYNC_LABELS, string];
   const { isInstallable, isInstalled, promptInstall } = usePWAInstall();
 
-  const activateCachedMember = (userId: string) => {
+  const activateCachedMember = async (userId: string) => {
     const cachedMember = readCachedMember(userId);
     if (!cachedMember) {
       setError('Your saved workspace profile is unavailable offline. Reconnect to restore your account.');
       return false;
     }
 
+    await dbStore.connectRemote(cachedMember.id, teamBackend, {
+      role: cachedMember.role,
+      actorName: cachedMember.name || cachedMember.email,
+      onError: (saveMessage) => setRemoteError(saveMessage),
+    });
     setPendingMember(null);
     setMember(cachedMember);
     setUserInfo({
@@ -126,7 +133,7 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
 
       if (!navigator.onLine) {
         if (sessionUser) {
-          activateCachedMember(sessionUser.id);
+          await activateCachedMember(sessionUser.id);
           return;
         }
         setError('You are offline and there is no saved workspace session available.');
@@ -165,7 +172,7 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
         const sessionResult = await neonAuthClient.getSession();
         const sessionUser = sessionResult.data?.user;
         if (sessionUser) {
-          if (activateCachedMember(sessionUser.id)) return;
+          if (await activateCachedMember(sessionUser.id)) return;
         } else {
           setError('Unable to connect. Please check your internet connection and try again.');
         }
@@ -443,6 +450,24 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
 
   return (
     <>
+      {(!isOnline || syncStatus === 'offline' || pending > 0) && (
+        <div
+          role="status"
+          className={`flex flex-wrap items-center justify-center gap-x-2 gap-y-1 px-4 py-2 text-center text-xs font-semibold ${sync.className}`}
+        >
+          <WifiOff className="h-4 w-4" aria-hidden="true" />
+          <span>
+            {!isOnline || syncStatus === 'offline'
+              ? 'Offline mode: showing saved fleet data.'
+              : sync.text}
+          </span>
+          {pending > 0 && (
+            <span>
+              {pending} unsynced {pending === 1 ? 'change is' : 'changes are'} saved on this device and will sync when Neon is reachable.
+            </span>
+          )}
+        </div>
+      )}
       {remoteError && (
         <div role="alert" className="flex items-center justify-center gap-3 bg-rose-100 px-4 py-2 text-center text-xs font-semibold text-rose-800">
           <span>{remoteError}</span>

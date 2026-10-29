@@ -2,7 +2,7 @@
   "name": "KAM Fleets",
   "short_name": "KAM Fleets",
   "description": "Fleet management application for tracking trips, expenses, and invoicing",
-  "id": "jcq-fleet-manager",
+  "id": "/kam-fleets/",
   "start_url": "/kam-fleets/",
   "scope": "/kam-fleets/",
   "display": "standalone",

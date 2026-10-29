@@ -18,7 +18,8 @@ import {
 
 export type { DatabaseSnapshot, AppRole, CommandRecord } from './domain.ts';
 
-const STORAGE_KEY_PREFIX = 'jcq_fleet_db_v1_';
+const STORAGE_KEY_PREFIX = 'kam_fleets_db_v1_';
+const LEGACY_STORAGE_KEY_PREFIX = 'jcq_fleet_db_v1_';
 const POLL_INTERVAL_MS = 15_000;
 const MAX_RETRY_DELAY_MS = 60_000;
 
@@ -65,7 +66,10 @@ class DatabaseStore extends FleetDomain {
     this.loadFromStorage();
     if (typeof window !== 'undefined') {
       window.addEventListener('storage', (event) => {
-        if (event.key?.startsWith(`${STORAGE_KEY_PREFIX}${this.storageKeySuffix}`)) {
+        if (
+          event.key?.startsWith(`${STORAGE_KEY_PREFIX}${this.storageKeySuffix}`) ||
+          event.key?.startsWith(`${LEGACY_STORAGE_KEY_PREFIX}${this.storageKeySuffix}`)
+        ) {
           this.loadFromStorage();
           this.notify();
         }
@@ -77,8 +81,13 @@ class DatabaseStore extends FleetDomain {
     return `${STORAGE_KEY_PREFIX}${this.storageKeySuffix}${key}`;
   }
 
+  private readStorageValue(key: string) {
+    return localStorage.getItem(this.storageKey(key)) ??
+      localStorage.getItem(`${LEGACY_STORAGE_KEY_PREFIX}${this.storageKeySuffix}${key}`);
+  }
+
   private readStored<T>(key: string, fallback: T): T {
-    const stored = localStorage.getItem(this.storageKey(key));
+    const stored = this.readStorageValue(key);
     return stored ? (JSON.parse(stored) as T) : fallback;
   }
 
@@ -100,7 +109,7 @@ class DatabaseStore extends FleetDomain {
       this.pendingCommands = this.readStored('pending_commands', []);
       this.remoteVersion = this.readStored('remote_version', 0);
       if (!this.session) {
-        this.auditActor = localStorage.getItem(this.storageKey('audit_actor'))?.trim() || DEFAULT_AUDIT_ACTOR;
+        this.auditActor = this.readStorageValue('audit_actor')?.trim() || DEFAULT_AUDIT_ACTOR;
       }
     } catch {
       this.trucks = sample ? [...INITIAL_TRUCKS] : [];
@@ -163,7 +172,8 @@ class DatabaseStore extends FleetDomain {
     if (this.retryTimer) clearTimeout(this.retryTimer);
     this.retryTimer = setTimeout(() => {
       this.retryTimer = undefined;
-      void this.flush();
+      if (this.pendingCommands.length > 0) void this.flush();
+      else void this.refresh();
     }, this.retryDelayMs);
     this.retryDelayMs = Math.min(this.retryDelayMs * 2, MAX_RETRY_DELAY_MS);
   }
@@ -213,10 +223,14 @@ class DatabaseStore extends FleetDomain {
     try {
       const state = await this.remote.loadState(this.remoteVersion);
       if (state && this.pendingCommands.length === 0) this.applyRemoteState(state);
+      if (this.retryTimer) clearTimeout(this.retryTimer);
+      this.retryTimer = undefined;
+      this.retryDelayMs = 2_000;
       this.setSyncStatus('synced');
     } catch (error) {
       console.error('Failed to refresh from Neon', error);
       this.setSyncStatus('offline');
+      this.scheduleRetry();
     }
   }
 
@@ -227,18 +241,24 @@ class DatabaseStore extends FleetDomain {
     this.storageKeySuffix = `team_${encodeURIComponent(userId)}_`;
     this.loadFromStorage();
     this.remote = backend;
-    if (this.pendingCommands.length > 0) await this.flush();
-    if (this.pendingCommands.length === 0) {
-      const state = await backend.loadState(0);
-      if (state) this.applyRemoteState(state);
-      this.setSyncStatus('synced');
-    }
-    this.notify();
     if (typeof window !== 'undefined') {
       this.pollTimer = setInterval(this.handleWake, POLL_INTERVAL_MS);
       window.addEventListener('focus', this.handleWake);
       window.addEventListener('online', this.handleWake);
     }
+    if (this.pendingCommands.length > 0) await this.flush();
+    if (this.pendingCommands.length === 0) {
+      try {
+        const state = await backend.loadState(0);
+        if (state) this.applyRemoteState(state);
+        this.setSyncStatus('synced');
+      } catch (error) {
+        console.error('Failed to connect to Neon; continuing with saved local data', error);
+        this.setSyncStatus('offline');
+        this.scheduleRetry();
+      }
+    }
+    this.notify();
   }
 
   public disconnectRemote() {

@@ -39,7 +39,7 @@
             .then(() => caches.keys())
             .then((cacheNames) => Promise.all(
               cacheNames
-                .filter((cacheName) => cacheName.startsWith('jcq-fleet-'))
+                .filter((cacheName) => cacheName.startsWith('kam-fleets-'))
                 .map((cacheName) => caches.delete(cacheName))
             ))
             .catch((error) => console.warn('Failed to remove the development service worker:', error));

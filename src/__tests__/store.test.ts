@@ -34,7 +34,7 @@ describe('DatabaseStore - LocalStorage Persistence', () => {
       });
 
       // Create new store instance to test persistence
-      const storedTrucks = localStorage.getItem('jcq_fleet_db_v1_trucks');
+      const storedTrucks = localStorage.getItem('kam_fleets_db_v1_trucks');
       expect(storedTrucks).toBeDefined();
 
       const parsedTrucks = JSON.parse(storedTrucks!);
@@ -117,7 +117,7 @@ describe('DatabaseStore - LocalStorage Persistence', () => {
 
       // Simulate storage event
       window.dispatchEvent(new StorageEvent('storage', {
-        key: 'jcq_fleet_db_v1_trucks',
+        key: 'kam_fleets_db_v1_trucks',
         newValue: JSON.stringify(dbStore.getTrucks()),
       }));
 
@@ -216,6 +216,37 @@ describe('DatabaseStore - Remote Connection', () => {
     dbStore.disconnectRemote();
 
     expect(dbStore.getSyncStatus()).toBe('local');
+  });
+
+  it('should load data saved with the previous storage prefix', async () => {
+    localStorage.setItem(
+      'jcq_fleet_db_v1_team_user123_trucks',
+      JSON.stringify([{ id: 'legacy-truck', license_plate: 'LEGACY 1' }]),
+    );
+    const unavailableBackend: RemoteBackend = {
+      loadState: vi.fn().mockRejectedValue(new Error('Network unavailable')),
+      sendCommand: vi.fn().mockRejectedValue(new Error('Network unavailable')),
+    };
+
+    await dbStore.connectRemote('user123', unavailableBackend, mockSession);
+
+    expect(dbStore.getTrucks()[0].license_plate).toBe('LEGACY 1');
+  });
+
+  it('should keep cached team data available when Neon is unreachable', async () => {
+    localStorage.setItem(
+      'kam_fleets_db_v1_team_user123_trucks',
+      JSON.stringify([{ id: 'cached-truck', license_plate: 'OFFLINE 1' }]),
+    );
+    const unavailableBackend: RemoteBackend = {
+      loadState: vi.fn().mockRejectedValue(new Error('Network unavailable')),
+      sendCommand: vi.fn().mockRejectedValue(new Error('Network unavailable')),
+    };
+
+    await expect(dbStore.connectRemote('user123', unavailableBackend, mockSession)).resolves.toBeUndefined();
+
+    expect(dbStore.getTrucks()[0].license_plate).toBe('OFFLINE 1');
+    expect(dbStore.getSyncStatus()).toBe('offline');
   });
 
   it('should use session actor name for audit logs', async () => {

@@ -397,9 +397,9 @@ describe('Integration Tests - End-to-End Workflows', () => {
       });
 
       // Verify localStorage has data
-      const storedTrucks = localStorage.getItem('jcq_fleet_db_v1_trucks');
-      const storedDrivers = localStorage.getItem('jcq_fleet_db_v1_drivers');
-      const storedTrips = localStorage.getItem('jcq_fleet_db_v1_trips');
+      const storedTrucks = localStorage.getItem('kam_fleets_db_v1_trucks');
+      const storedDrivers = localStorage.getItem('kam_fleets_db_v1_drivers');
+      const storedTrips = localStorage.getItem('kam_fleets_db_v1_trips');
 
       expect(storedTrucks).toBeDefined();
       expect(storedDrivers).toBeDefined();
@@ -427,7 +427,7 @@ describe('Integration Tests - End-to-End Workflows', () => {
       const truckId = truck.id;
 
       // Verify data is in localStorage
-      const storedTrucks = localStorage.getItem('jcq_fleet_db_v1_trucks');
+      const storedTrucks = localStorage.getItem('kam_fleets_db_v1_trucks');
       expect(storedTrucks).toBeDefined();
 
       // Parse and verify the truck is stored
