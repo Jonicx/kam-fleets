@@ -280,39 +280,6 @@ function FleetTripManagerApp() {
         />
       )}
 
-      {/* Reset Database Confirmation Modal */}
-      {showResetConfirm && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="modal-readable bg-white rounded-2xl p-6 max-w-md w-full border border-slate-200 shadow-2xl space-y-4">
-            <h3 className="text-base font-bold text-slate-900">Reset Sample Database?</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              This restores Trucks, Drivers, Trips, Expenses, Spare Parts, and Truck Service History to the sample dataset and clears invoices and payments. The local audit history is retained and the reset is recorded as an event.
-            </p>
-            <div className="flex justify-end space-x-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowResetConfirm(false)}
-                className="px-4 py-2 text-xs font-semibold rounded-lg text-slate-600 hover:bg-slate-100 transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  dbStore.resetToDefault();
-                  setShowResetConfirm(false);
-                  setResetSuccessToast(true);
-                  setTimeout(() => setResetSuccessToast(false), 3000);
-                }}
-                className="px-4 py-2 text-xs font-bold rounded-lg bg-slate-900 hover:bg-slate-800 text-white transition shadow-sm"
-              >
-                Reset Database
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Profile Modal */}
       {showProfileModal && (
         <ProfileModal
