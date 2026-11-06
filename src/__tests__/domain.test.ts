@@ -220,6 +220,121 @@ describe('FleetDomain - Driver Management', () => {
   });
 });
 
+describe('FleetDomain - Client Management', () => {
+  let domain: FleetDomain;
+
+  beforeEach(() => {
+    domain = new FleetDomain();
+  });
+
+  it('creates, sorts, and updates clients', () => {
+    const zulu = domain.createClient({ name: 'Zulu Logistics', email: 'OPS@ZULU.EXAMPLE' });
+    const alpha = domain.createClient({ name: 'Alpha Freight' });
+
+    expect(domain.getClients().map((client) => client.name)).toEqual(['Alpha Freight', 'Zulu Logistics']);
+    expect(zulu.email).toBe('ops@zulu.example');
+    expect(domain.updateClient(alpha.id, { phone: '+255123456' }).phone).toBe('+255123456');
+  });
+
+  it('prevents deleting clients referenced by trips or invoices', () => {
+    const client = domain.createClient({ name: 'Protected Client' });
+    const truck = domain.createTruck({ license_plate: 'CLT 123', model: 'Test Truck', status: 'Available' });
+    const driver = domain.createDriver({ full_name: 'Test Driver', license_number: 'CLT-LIC', phone: '1234567890', status: 'Available' });
+    const trip = domain.createTrip({
+      truck_id: truck.id,
+      driver_id: driver.id,
+      client_id: client.id,
+      origin: 'A',
+      destination: 'B',
+      scheduled_start: new Date().toISOString(),
+      scheduled_end: new Date(Date.now() + 86400000).toISOString(),
+      budget_allocated: 1000,
+      driver_pay: 100,
+    });
+
+    expect(trip.client_id).toBe(client.id);
+    expect(domain.getEnrichedTrip(trip.id)?.client?.name).toBe(client.name);
+    expect(() => domain.deleteClient(client.id)).toThrow('trips or invoices are linked');
+  });
+
+  it('allows clearing a planned trip client', () => {
+    const client = domain.createClient({ name: 'Invoice Client' });
+    const truck = domain.createTruck({ license_plate: 'INV 123', model: 'Test Truck', status: 'Available' });
+    const driver = domain.createDriver({ full_name: 'Invoice Driver', license_number: 'INV-LIC', phone: '1234567890', status: 'Available' });
+    const trip = domain.createTrip({
+      truck_id: truck.id,
+      driver_id: driver.id,
+      client_id: client.id,
+      origin: 'A',
+      destination: 'B',
+      scheduled_start: new Date().toISOString(),
+      scheduled_end: new Date(Date.now() + 86400000).toISOString(),
+      budget_allocated: 1000,
+      driver_pay: 100,
+    });
+
+    domain.updateTrip(trip.id, { client_id: null });
+    expect(domain.getTrips().find((item) => item.id === trip.id)?.client_id).toBeNull();
+    expect(domain.getEnrichedTrip(trip.id)?.client).toBeUndefined();
+  });
+
+  it('copies the assigned trip client onto its invoice', () => {
+    const client = domain.createClient({ name: 'Invoice Client' });
+    const truck = domain.createTruck({ license_plate: 'INV 456', model: 'Test Truck', status: 'Available' });
+    const driver = domain.createDriver({ full_name: 'Invoice Driver', license_number: 'INV-LIC-2', phone: '1234567890', status: 'Available' });
+    const trip = domain.createTrip({
+      truck_id: truck.id,
+      driver_id: driver.id,
+      client_id: client.id,
+      origin: 'A',
+      destination: 'B',
+      scheduled_start: new Date().toISOString(),
+      scheduled_end: new Date(Date.now() + 86400000).toISOString(),
+      budget_allocated: 1000,
+      driver_pay: 100,
+    });
+    domain.updateTrip(trip.id, { status: 'Ongoing' });
+    domain.completeTrip(trip.id);
+
+    const invoice = domain.createInvoice({
+      trip_id: trip.id,
+      amount: 1500,
+      issued_at: new Date(Date.now() - 1000).toISOString(),
+      due_at: new Date(Date.now() + 30 * 86400000).toISOString(),
+    });
+    expect(invoice.client_id).toBe(client.id);
+  });
+
+  it('does not link a driver invoice to the client of its optional trip', () => {
+    const client = domain.createClient({ name: 'Trip Client' });
+    const truck = domain.createTruck({ license_plate: 'DRV 456', model: 'Test Truck', status: 'Available' });
+    const driver = domain.createDriver({ full_name: 'Driver Invoice', license_number: 'DRV-LIC', phone: '1234567890', status: 'Available' });
+    const trip = domain.createTrip({
+      truck_id: truck.id,
+      driver_id: driver.id,
+      client_id: client.id,
+      origin: 'A',
+      destination: 'B',
+      scheduled_start: new Date().toISOString(),
+      scheduled_end: new Date(Date.now() + 86400000).toISOString(),
+      budget_allocated: 1000,
+      driver_pay: 100,
+    });
+    domain.updateTrip(trip.id, { status: 'Ongoing' });
+    domain.completeTrip(trip.id);
+
+    const invoice = domain.createInvoice({
+      trip_id: trip.id,
+      driver_id: driver.id,
+      reason: 'Driver equipment',
+      amount: 1500,
+      issued_at: new Date(Date.now() - 1000).toISOString(),
+      due_at: new Date(Date.now() + 30 * 86400000).toISOString(),
+    });
+    expect(invoice.client_id).toBeUndefined();
+  });
+});
+
 describe('FleetDomain - Trip Management', () => {
   let domain: FleetDomain;
 
@@ -532,9 +647,47 @@ describe('FleetDomain - Invoice and Payment Management', () => {
       expect(invoice).toBeDefined();
       expect(invoice.amount).toBe(1500);
       expect(invoice.invoice_number).toBeDefined();
+      expect(invoice.invoice_number).toMatch(/^KAM-/);
     });
 
-    it('should throw error for non-completed trip', () => {
+    it('should create an invoice for an ongoing trip', () => {
+      const truck = domain.createTruck({
+        license_plate: 'XYZ 789',
+        model: 'Test Truck 2',
+        status: 'Available',
+      });
+
+      const driver = domain.createDriver({
+        full_name: 'Jane Doe',
+        license_number: 'LIC456',
+        phone: '0987654321',
+        status: 'Available',
+      });
+
+      const ongoingTrip = domain.createTrip({
+        truck_id: truck.id,
+        driver_id: driver.id,
+        origin: 'C',
+        destination: 'D',
+        scheduled_start: new Date().toISOString(),
+        scheduled_end: new Date(Date.now() + 86400000).toISOString(),
+        budget_allocated: 1000,
+        driver_pay: 500,
+      });
+      domain.updateTrip(ongoingTrip.id, { status: 'Ongoing' });
+
+      const invoice = domain.createInvoice({
+        trip_id: ongoingTrip.id,
+        amount: 1500,
+        issued_at: new Date().toISOString(),
+        due_at: new Date(Date.now() + 86400000 * 30).toISOString(),
+      });
+
+      expect(invoice.trip_id).toBe(ongoingTrip.id);
+      expect(invoice.amount).toBe(1500);
+    });
+
+    it('should throw error for a planned trip', () => {
       const truck = domain.createTruck({
         license_plate: 'XYZ 789',
         model: 'Test Truck 2',
@@ -566,7 +719,7 @@ describe('FleetDomain - Invoice and Payment Management', () => {
           issued_at: new Date().toISOString(),
           due_at: new Date(Date.now() + 86400000 * 30).toISOString(),
         });
-      }).toThrow('Invoices can only be issued for completed trips');
+      }).toThrow('Invoices can only be issued for ongoing or completed trips');
     });
 
     it('should throw error for invalid dates', () => {

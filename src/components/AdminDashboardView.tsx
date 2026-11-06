@@ -16,6 +16,7 @@ import { AuditDetailModal } from './AuditDetailModal.tsx';
 import {
   EnrichedTrip,
   Driver,
+  Client,
   Truck as TruckRecord,
   TruckServiceRecord,
   Invoice, 
@@ -37,6 +38,7 @@ interface AdminDashboardViewProps {
   trips: EnrichedTrip[];
   trucks: TruckRecord[];
   drivers: Driver[];
+  clients: Client[];
   truckServiceRecords: TruckServiceRecord[];
   invoices: Invoice[];
   payments: Payment[];
@@ -46,6 +48,11 @@ interface AdminDashboardViewProps {
   onCreatePayment: (data: Omit<Payment, 'id' | 'created_at'>) => Payment;
   onVoidInvoice: (invoiceId: string, reason: string) => void;
   onReversePayment: (paymentId: string, reason: string) => void;
+  onLoadOlderAuditLogs: (cursor: { id: string } | null) => Promise<{
+    logs: AuditLog[];
+    total: number;
+    hasMore: boolean;
+  }>;
 }
 
 type LedgerFilter = 'All' | EnrichedTrip['status'];
@@ -76,6 +83,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   trips,
   trucks,
   drivers,
+  clients,
   truckServiceRecords,
   invoices: allInvoices,
   payments: allPayments,
@@ -85,6 +93,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   onCreatePayment,
   onVoidInvoice,
   onReversePayment,
+  onLoadOlderAuditLogs,
 }) => {
   const invoices = useMemo(() => allInvoices.filter((invoice) => !invoice.voided_at), [allInvoices]);
   const payments = useMemo(() => allPayments.filter((payment) => !payment.reversed_at), [allPayments]);
@@ -100,6 +109,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [expandedTripId, setExpandedTripId] = useState<string | null>(null);
   const [invoiceTripId, setInvoiceTripId] = useState('');
   const [invoiceDriverId, setInvoiceDriverId] = useState('');
+  const [invoiceClientId, setInvoiceClientId] = useState('');
   const [invoiceLinkedTripId, setInvoiceLinkedTripId] = useState('');
   const [invoiceType, setInvoiceType] = useState<'trip' | 'driver'>('trip');
   const [invoiceReason, setInvoiceReason] = useState('');
@@ -119,6 +129,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [accountingError, setAccountingError] = useState('');
   const [accountingSuccess, setAccountingSuccess] = useState('');
   const [selectedAuditLog, setSelectedAuditLog] = useState<AuditLog | null>(null);
+  const [olderAuditLogs, setOlderAuditLogs] = useState<AuditLog[]>([]);
+  const [auditTotal, setAuditTotal] = useState<number | null>(null);
+  const [hasMoreOlderAuditLogs, setHasMoreOlderAuditLogs] = useState(true);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditLoadError, setAuditLoadError] = useState('');
+  const [visibleAuditCount, setVisibleAuditCount] = useState(30);
 
   useEffect(() => {
     const now = new Date();
@@ -469,6 +485,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         }
         onCreateInvoice({
           trip_id: selectedInvoiceTrip.id,
+          client_id: invoiceClientId || undefined,
           invoice_number: invoiceNumber,
           amount,
           issued_at: new Date(`${invoiceIssuedAt}T12:00:00`).toISOString(),
@@ -498,6 +515,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       setInvoiceAmount('');
       setInvoiceNumber('');
       setInvoiceReason('');
+      setInvoiceClientId('');
       setInvoiceLinkedTripId('');
       setInvoiceIssuedAt(dateInputValue(new Date()));
     } catch (error) {
@@ -533,6 +551,40 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       setPaymentPaidAt(dateInputValue(new Date()));
     } catch (error) {
       setAccountingError(error instanceof Error ? error.message : 'Payment could not be recorded.');
+    }
+  };
+
+  const matchesAuditReport = (log: AuditLog) => {
+    if (!isWithinRange(log.timestamp, reportRange)) return false;
+    if (log.related_trip_id) return analytics.statusTripIds.has(log.related_trip_id);
+    if (log.entity_type === 'trip') return analytics.statusTripIds.has(log.entity_id);
+    if (log.entity_type === 'invoice') return analytics.reportInvoices.some((invoice) => invoice.id === log.entity_id);
+    if (log.entity_type === 'payment') {
+      const payment = payments.find((item) => item.id === log.entity_id);
+      return payment ? analytics.reportInvoices.some((invoice) => invoice.id === payment.invoice_id) : false;
+    }
+    return true;
+  };
+  const recentAuditLogIds = new Set(auditLogs.map((log) => log.id));
+  const filteredAuditLogs = auditLogs.filter(matchesAuditReport);
+  const archivedAuditLogs = olderAuditLogs.filter((log) => !recentAuditLogIds.has(log.id));
+
+  const handleLoadOlderAuditLogs = async () => {
+    if (auditLoading || !hasMoreOlderAuditLogs) return;
+    setAuditLoading(true);
+    setAuditLoadError('');
+    try {
+      const oldestLoadedLog = olderAuditLogs[olderAuditLogs.length - 1] ?? auditLogs[auditLogs.length - 1];
+      const page = await onLoadOlderAuditLogs(
+        oldestLoadedLog ? { id: oldestLoadedLog.id } : null,
+      );
+      setOlderAuditLogs((current) => [...current, ...page.logs]);
+      setAuditTotal(page.total);
+      setHasMoreOlderAuditLogs(page.hasMore);
+    } catch (error) {
+      setAuditLoadError(error instanceof Error ? error.message : 'Older audit history could not be loaded.');
+    } finally {
+      setAuditLoading(false);
     }
   };
 
@@ -649,7 +701,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       </div>
 
       <div className="space-y-4">
-        <div className="sticky top-1 z-20 -mx-4 w-[calc(100%+2rem)] rounded-none border-x-0 border-slate-200 bg-white/95 p-2 shadow-lg shadow-slate-900/15 backdrop-blur-sm sm:mx-0 sm:w-auto sm:rounded-2xl sm:border-x sm:p-3 sm:shadow-sm">
+        <div className="sticky top-0 z-20 -mx-4 w-[calc(100%+2rem)] rounded-none border-x-0 border-slate-200 bg-white p-2 shadow-lg shadow-slate-900/15 sm:mx-0 sm:w-auto sm:rounded-2xl sm:border-x sm:p-3 sm:shadow-sm">
           <div className="mb-2 flex items-center justify-between px-1 sm:mb-3">
             <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Dashboard workspace</span>
             <span className="text-[10px] font-semibold text-slate-400">Select a section</span>
@@ -832,14 +884,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           reportTripInvoices={analytics.reportTripInvoices}
           trips={trips}
           drivers={drivers}
+          clients={clients}
           payments={payments}
           reportRange={reportRange}
           completedTripsForInvoice={completedTripsForInvoice}
           selectedInvoiceTrip={selectedInvoiceTrip}
           invoiceAmount={invoiceAmount}
           onInvoiceAmountChange={setInvoiceAmount}
-          onInvoiceTripIdChange={setInvoiceTripId}
+          onInvoiceTripIdChange={(value) => {
+            setInvoiceTripId(value);
+            setInvoiceClientId('');
+          }}
           onInvoiceDriverIdChange={setInvoiceDriverId}
+          invoiceClientId={invoiceClientId}
+          onInvoiceClientIdChange={setInvoiceClientId}
           onInvoiceLinkedTripIdChange={setInvoiceLinkedTripId}
           invoiceReason={invoiceReason}
           onInvoiceReasonChange={setInvoiceReason}
@@ -870,7 +928,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           onVoidInvoice={onVoidInvoice}
           onReversePayment={onReversePayment}
           invoiceType={invoiceType}
-          onInvoiceTypeChange={setInvoiceType}
+          onInvoiceTypeChange={(value) => {
+            setInvoiceType(value);
+            setInvoiceClientId('');
+          }}
           selectedInvoiceDriver={selectedInvoiceDriver}
           selectedInvoiceLinkedTrip={selectedInvoiceLinkedTrip}
         />
@@ -960,27 +1021,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               </div>
               <p className="mt-1 text-xs text-slate-500">Every change, attributed to the signed-in team member who made it.</p>
             </div>
-            <span className="whitespace-nowrap text-[10px] font-semibold text-slate-500">{auditLogs.length} retained</span>
-          </div>
-          <div className="max-h-[440px] divide-y divide-slate-100 overflow-y-auto">
-            {auditLogs
-              .filter((log) => isWithinRange(log.timestamp, reportRange))
-              .filter((log) => {
-                if (log.related_trip_id) return analytics.statusTripIds.has(log.related_trip_id);
-                if (log.entity_type === 'trip') return analytics.statusTripIds.has(log.entity_id);
-                if (log.entity_type === 'invoice') return analytics.reportInvoices.some((invoice) => invoice.id === log.entity_id);
-                if (log.entity_type === 'payment') {
-                  const payment = payments.find((item) => item.id === log.entity_id);
-                  return payment ? analytics.reportInvoices.some((invoice) => invoice.id === payment.invoice_id) : false;
-                }
-                return true;
-              })
-              .slice(0, 30)
-              .map((log) => (
-                <div key={log.id} className="px-4 py-3 sm:px-5 border-b border-slate-100 last:border-0">
+            <span className="whitespace-nowrap text-[10px] font-semibold text-slate-500">
+              {auditTotal === null ? `${auditLogs.length} latest loaded` : `${auditTotal.toLocaleString()} retained`}
+            </span>
+            </div>
+            <div className="max-h-[440px] divide-y divide-slate-100 overflow-y-auto">
+              {filteredAuditLogs.slice(0, visibleAuditCount).map((log) => (
+                <div key={log.id} className="border-b border-slate-100 px-4 py-3 last:border-0 sm:px-5">
                   <button
                     onClick={() => setSelectedAuditLog(log)}
-                    className="w-full text-left flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between hover:bg-slate-50 rounded px-2 py-1 transition-colors"
+                    className="flex w-full flex-col gap-1.5 rounded px-2 py-1 text-left transition-colors hover:bg-slate-50 sm:flex-row sm:items-start sm:justify-between"
                   >
                     <span className="min-w-0">
                       <span className="block text-xs font-bold text-slate-800">{log.summary}</span>
@@ -992,13 +1042,60 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   </button>
                 </div>
               ))}
-            {auditLogs.filter((log) => isWithinRange(log.timestamp, reportRange)).length === 0 && (
-              <p className="px-4 py-8 text-center text-xs text-slate-500">No audit activity in this date range.</p>
-            )}
-          </div>
-          <p className="border-t border-slate-100 px-4 py-3 text-[10px] leading-relaxed text-slate-500 sm:px-5">
-            Audit events are written by the server from the verified Neon Auth account and cannot be edited or deleted. The latest 2,000 events are shown.
-          </p>
+              {archivedAuditLogs.length > 0 && (
+                <p className="border-y border-slate-100 bg-slate-50 px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                  Older retained entries · all dates
+                </p>
+              )}
+              {archivedAuditLogs.map((log) => (
+                <div key={log.id} className="border-b border-slate-100 px-4 py-3 last:border-0 sm:px-5">
+                  <button
+                    onClick={() => setSelectedAuditLog(log)}
+                    className="flex w-full flex-col gap-1.5 rounded px-2 py-1 text-left transition-colors hover:bg-slate-50 sm:flex-row sm:items-start sm:justify-between"
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-xs font-bold text-slate-800">{log.summary}</span>
+                      <span className="mt-1 block text-[10px] text-slate-500">
+                        {log.actor} · {log.action} · {log.entity_type} · {log.entity_id.slice(0, 8)}
+                      </span>
+                    </span>
+                    <time className="shrink-0 text-[10px] text-slate-500">{new Date(log.timestamp).toLocaleString()}</time>
+                  </button>
+                </div>
+              ))}
+              {filteredAuditLogs.length === 0 && archivedAuditLogs.length === 0 && (
+                <p className="px-4 py-8 text-center text-xs text-slate-500">No audit activity in this date range.</p>
+              )}
+              {visibleAuditCount < filteredAuditLogs.length && (
+                <div className="p-3 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleAuditCount((count) => count + 30)}
+                    className="text-xs font-semibold text-blue-700 hover:text-blue-900"
+                  >
+                    Show more recent activity
+                  </button>
+                </div>
+              )}
+              {hasMoreOlderAuditLogs && (
+                <div className="p-3 text-center">
+                  <button
+                    type="button"
+                    onClick={() => void handleLoadOlderAuditLogs()}
+                    disabled={auditLoading}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {auditLoading ? 'Loading older activity...' : 'Load older retained activity'}
+                  </button>
+                </div>
+              )}
+              {auditLoadError && (
+                <p role="alert" className="px-4 py-2 text-xs text-rose-700">{auditLoadError}</p>
+              )}
+            </div>
+            <p className="border-t border-slate-100 px-4 py-3 text-[10px] leading-relaxed text-slate-500 sm:px-5">
+              Audit events are immutable and do not expire automatically. The workspace loads the latest 2,000; use "Load older retained activity" to browse earlier events.
+            </p>
         </div>
 
         <TeamAccessPanel />

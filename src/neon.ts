@@ -1,6 +1,7 @@
 import { createAuthClient } from '@neondatabase/auth';
 import type { DatabaseSnapshot } from './db/store.ts';
 import type { AppRole } from './db/domain.ts';
+import type { AuditLog } from './types/database.ts';
 
 const neonAuthUrl = import.meta.env.VITE_NEON_AUTH_URL;
 if (!neonAuthUrl) {
@@ -183,4 +184,30 @@ export async function updateCurrentUser(updates: { name?: string; phone?: string
 
   const data = await response.json();
   return data.user;
+}
+
+export async function fetchOlderAuditLogs(cursor: { id: string } | null) {
+  const params = new URLSearchParams();
+  if (cursor) params.set('beforeId', cursor.id);
+  const body: unknown = await apiRequest(`audit?${params.toString()}`);
+  if (
+    typeof body !== 'object' ||
+    body === null ||
+    !('logs' in body) ||
+    !Array.isArray(body.logs) ||
+    !('total' in body) ||
+    typeof body.total !== 'number' ||
+    !Number.isSafeInteger(body.total) ||
+    body.total < 0 ||
+    !('hasMore' in body) ||
+    typeof body.hasMore !== 'boolean'
+  ) {
+    throw new Error('Neon Function returned an invalid audit history response.');
+  }
+  const logs = body.logs as AuditLog[];
+  if (logs.some((entry) => typeof entry !== 'object' || entry === null ||
+      typeof entry.id !== 'string' || typeof entry.timestamp !== 'string' || typeof entry.summary !== 'string')) {
+    throw new Error('Neon Function returned an invalid audit history entry.');
+  }
+  return { logs, total: body.total, hasMore: body.hasMore };
 }

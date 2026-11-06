@@ -4,6 +4,7 @@ import { DashboardView } from './components/DashboardView.tsx';
 import { TripsView } from './components/TripsView.tsx';
 import { TrucksView } from './components/TrucksView.tsx';
 import { DriversView } from './components/DriversView.tsx';
+import { ClientsView } from './components/ClientsView.tsx';
 import { ExpensesAndPartsView } from './components/ExpensesAndPartsView.tsx';
 import { TripDetailModal } from './components/TripDetailModal.tsx';
 import { NewTripModal } from './components/NewTripModal.tsx';
@@ -13,7 +14,7 @@ import { NeonAuthGate } from './components/NeonAuthGate.tsx';
 import { ProfileModal } from './components/ProfileModal.tsx';
 import { dbStore } from './db/store.ts';
 import { UserProvider, useUser } from './contexts/UserContext.tsx';
-import { neonAuthClient, updateCurrentUser } from './neon.ts';
+import { fetchOlderAuditLogs, neonAuthClient, updateCurrentUser } from './neon.ts';
 
 const AdminDashboardView = lazy(() =>
   import('./components/AdminDashboardView.tsx').then((module) => ({ default: module.AdminDashboardView })),
@@ -24,6 +25,7 @@ const SchemaStudioView = lazy(() =>
 import {
   Truck,
   Driver,
+  Client,
   Trip,
   Expense,
   SparePart,
@@ -68,6 +70,7 @@ function FleetTripManagerApp() {
   const [trucks, setTrucks] = useState<Truck[]>(() => dbStore.getTrucks());
   const [truckServiceRecords, setTruckServiceRecords] = useState<TruckServiceRecord[]>(() => dbStore.getTruckServiceRecords());
   const [drivers, setDrivers] = useState<Driver[]>(() => dbStore.getDrivers());
+  const [clients, setClients] = useState<Client[]>(() => dbStore.getClients());
   const [trips, setTrips] = useState<Trip[]>(() => dbStore.getTrips());
   const [enrichedTrips, setEnrichedTrips] = useState<EnrichedTrip[]>(() => dbStore.getEnrichedTrips());
   const [expenses, setExpenses] = useState<Expense[]>(() => dbStore.getExpenses());
@@ -83,6 +86,7 @@ function FleetTripManagerApp() {
       setTrucks(dbStore.getTrucks());
       setTruckServiceRecords(dbStore.getTruckServiceRecords());
       setDrivers(dbStore.getDrivers());
+      setClients(dbStore.getClients());
       setTrips(dbStore.getTrips());
       setEnrichedTrips(dbStore.getEnrichedTrips());
       setExpenses(dbStore.getExpenses());
@@ -151,6 +155,7 @@ function FleetTripManagerApp() {
             trips={enrichedTrips}
             trucks={trucks}
             drivers={drivers}
+            clients={clients}
             truckServiceRecords={truckServiceRecords}
             invoices={invoices}
             payments={payments}
@@ -160,12 +165,14 @@ function FleetTripManagerApp() {
             onCreatePayment={(data) => dbStore.createPayment(data)}
             onVoidInvoice={(id, reason) => dbStore.voidInvoice(id, reason)}
             onReversePayment={(id, reason) => dbStore.reversePayment(id, reason)}
+            onLoadOlderAuditLogs={fetchOlderAuditLogs}
           />
         )}
 
         {activeTab === 'trips' && (
           <TripsView
             trips={enrichedTrips}
+            clients={clients}
             onSelectTrip={(id) => setSelectedTripId(id)}
             onOpenUpdateModal={(id) => setUpdatingTripId(id)}
             onOpenNewTripModal={() => setShowNewTripModal(true)}
@@ -196,6 +203,15 @@ function FleetTripManagerApp() {
             onUpdateDriverStatus={(id, status) => dbStore.updateDriver(id, { status })}
             onDeleteDriver={(id) => dbStore.deleteDriver(id)}
             onUpdateDriver={(id, updates) => dbStore.updateDriver(id, updates)}
+          />
+        )}
+
+        {activeTab === 'clients' && isAdmin && (
+          <ClientsView
+            clients={clients}
+            onCreateClient={(data) => dbStore.createClient(data)}
+            onUpdateClient={(id, updates) => dbStore.updateClient(id, updates)}
+            onDeleteClient={(id) => dbStore.deleteClient(id)}
           />
         )}
 
@@ -235,6 +251,7 @@ function FleetTripManagerApp() {
           trip={editingTrip}
           trucks={trucks}
           drivers={drivers}
+          clients={clients}
           onSave={(id, updates) => dbStore.updateTrip(id, updates)}
           onClose={() => setEditingTripId(null)}
         />
@@ -272,6 +289,7 @@ function FleetTripManagerApp() {
         <NewTripModal
           trucks={trucks}
           drivers={drivers}
+          clients={clients}
           onClose={() => setShowNewTripModal(false)}
           onCreateTrip={(data) => {
             const newTrip = dbStore.createTrip(data);

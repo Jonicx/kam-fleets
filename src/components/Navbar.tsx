@@ -3,6 +3,7 @@ import {
   Truck as TruckIcon,
   Navigation2,
   Users,
+  Building2,
   Receipt,
   Database,
   LayoutDashboard,
@@ -56,8 +57,9 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'trips', label: 'Trips', icon: Navigation2, badge: stats.ongoingTrips },
     { id: 'trucks', label: 'Truck Fleet', icon: TruckIcon, badge: stats.totalTrucks },
     { id: 'drivers', label: 'Drivers', icon: Users, badge: stats.totalDrivers },
+    { id: 'clients', label: 'Clients', icon: Building2 },
     { id: 'expenses', label: 'Expenses & Services', icon: Receipt },
-  ].filter((item) => isAdmin || item.id !== 'admin');
+  ].filter((item) => isAdmin || (item.id !== 'admin' && item.id !== 'clients'));
 
   return (
     <header className={`${isSticky ? 'sticky' : 'relative'} top-0 z-40 bg-slate-900 border-b rounded-br-3xl sm:rounded-b-3xl border-slate-800 backdrop-blur-md text-white shadow-lg shadow-slate-900/40`}>
@@ -65,20 +67,17 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center justify-between h-16">
           {/* Logo & Brand */}
           <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
-            <div className="flex flex-col items-start space-y-0.5">
-              <div className="flex flex-row items-start space-x-2">
-                <span className="font-extrabold text-md tracking-tight text-white">KAM</span>
-                <span className="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-semibold border border-amber-500/30 shadow-md shadow-orange-500/20">
-                  Fleets
-                </span>
+            <img
+              src={`${import.meta.env.BASE_URL}brand-logo.png`}
+              alt="KAM Fleets"
+              className="h-12 w-[80px] shrink-0 object-contain sm:h-14 sm:w-[100px]"
+            />
+            {userName && (
+              <div className="flex-col items-start space-y-0.5 flex">
+                <span className="text-[10px] text-slate-400">{greeting}</span>
+                <span className="text-[10px] font-semibold text-slate-300">{userName}</span>
               </div>
-              {userName && (
-                <div className="flex items-center space-x-1">
-                  <span className="text-[10px] text-slate-400">{greeting}</span>
-                  <span className="text-[10px] font-semibold text-slate-300">{userName}</span>
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
           {/* Nav Links */}
@@ -119,13 +118,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Quick CTA Actions */}
           <div className="flex items-center space-x-2">
-            <button
-              onClick={onOpenNewTripModal}
-              className="flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition shadow-sm"
-            >
-              <Navigation2 className="h-3.5 w-3.5 fill-current" />
-              <span>Plan Trip</span>
-            </button>
             {onSignOut && onOpenProfile && (
               <UserProfileDropdown
                 userName={userName}

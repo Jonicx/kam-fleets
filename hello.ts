@@ -2,7 +2,7 @@ import { attachDatabasePool } from '@neon/functions';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { Pool, type PoolClient } from 'pg';
 import { canRunCommand, isCommandName, type AppRole, type DatabaseSnapshot } from './src/db/domain.ts';
-import { getDataVersion, isUuid, loadSnapshot, saveChanges, ServerDomain } from './server/teamData.ts';
+import { getDataVersion, isUuid, loadOlderAuditHistory, loadSnapshot, saveChanges, ServerDomain } from './server/teamData.ts';
 
 function requireEnv(name: string) {
   const value = process.env[name];
@@ -218,6 +218,29 @@ async function getState(user: AppUser, since: number) {
   }
 }
 
+async function getAuditHistory(user: AppUser, url: URL) {
+  requireActive(user);
+  requireAdmin(user);
+  const beforeId = url.searchParams.get('beforeId');
+  if (beforeId !== null && !isUuid(beforeId)) {
+    throw new HttpError(400, 'Audit history cursor is invalid.');
+  }
+
+  const cursor = beforeId === null ? null : { id: beforeId };
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+    const history = await loadOlderAuditHistory(client, cursor);
+    await client.query('COMMIT');
+    return history;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function runCommand(user: AppUser, body: Record<string, unknown>) {
   requireActive(user);
   const { command, args, ids } = body;
@@ -288,7 +311,7 @@ export default {
 
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, '') || '/';
-    const route = `${request.method} ${path.replace(/^.*?\/(health|me|state|commands|team)(\/|$)/, '/$1$2')}`;
+    const route = `${request.method} ${path.replace(/^.*?\/(health|me|state|commands|audit|team)(\/|$)/, '/$1$2')}`;
 
     try {
       if (request.method === 'GET' && (path === '/' || path.endsWith('/health'))) {
@@ -296,7 +319,7 @@ export default {
         return jsonResponse({ ok: true, services: ['postgres', 'functions'] }, 200, corsHeaders);
       }
 
-      const knownRoute = /^(GET \/me|PATCH \/me|GET \/state|POST \/commands|GET \/team|PATCH \/team\/[^/]+)$/.test(route);
+      const knownRoute = /^(GET \/me|PATCH \/me|GET \/state|POST \/commands|GET \/audit|GET \/team|PATCH \/team\/[^/]+)$/.test(route);
       if (!knownRoute) return jsonResponse({ error: 'Not found.' }, 404, corsHeaders);
 
       const user = await resolveUser(await getUserId(request));
@@ -326,6 +349,10 @@ export default {
         requireActive(user);
         const since = Number(url.searchParams.get('since') || 0);
         return jsonResponse(await getState(user, Number.isSafeInteger(since) ? since : 0), 200, corsHeaders);
+      }
+
+      if (route === 'GET /audit') {
+        return jsonResponse(await getAuditHistory(user, url), 200, corsHeaders);
       }
 
       if (route === 'POST /commands') {

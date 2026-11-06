@@ -16,11 +16,12 @@ import {
   Wrench,
   Pencil,
 } from 'lucide-react';
-import { EnrichedTrip, TripStatus } from '../types/database.ts';
+import { Client, EnrichedTrip, TripStatus } from '../types/database.ts';
 import { formatTsh } from '../utils/currency.ts';
 
 interface TripsViewProps {
   trips: EnrichedTrip[];
+  clients?: Client[];
   onSelectTrip: (tripId: string) => void;
   onOpenUpdateModal?: (tripId: string) => void;
   onOpenNewTripModal: () => void;
@@ -31,6 +32,7 @@ interface TripsViewProps {
 
 export const TripsView: React.FC<TripsViewProps> = ({
   trips,
+  clients = [],
   onSelectTrip,
   onOpenUpdateModal,
   onOpenNewTripModal,
@@ -40,19 +42,23 @@ export const TripsView: React.FC<TripsViewProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | TripStatus>('All');
+  const [clientFilter, setClientFilter] = useState('All');
   const [tripToDelete, setTripToDelete] = useState<EnrichedTrip | null>(null);
   const [tripToComplete, setTripToComplete] = useState<EnrichedTrip | null>(null);
 
   const filteredTrips = trips.filter((trip) => {
     const matchesStatus = statusFilter === 'All' || trip.status === statusFilter;
+    const matchesClient = clientFilter === 'All'
+      || (clientFilter === 'none' ? !trip.client_id : trip.client_id === clientFilter);
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch =
       trip.origin.toLowerCase().includes(searchLower) ||
       trip.destination.toLowerCase().includes(searchLower) ||
       (trip.cargo_type && trip.cargo_type.toLowerCase().includes(searchLower)) ||
       (trip.truck && trip.truck.license_plate.toLowerCase().includes(searchLower)) ||
-      (trip.driver && trip.driver.full_name.toLowerCase().includes(searchLower));
-    return matchesStatus && matchesSearch;
+      (trip.driver && trip.driver.full_name.toLowerCase().includes(searchLower)) ||
+      (trip.client && trip.client.name.toLowerCase().includes(searchLower));
+    return matchesStatus && matchesClient && matchesSearch;
   });
 
   return (
@@ -94,7 +100,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
           <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search by route, cargo, truck plate, driver name..."
+            placeholder="Search by route, cargo, truck, driver, or client..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -103,6 +109,14 @@ export const TripsView: React.FC<TripsViewProps> = ({
 
         {/* Status Filters */}
         <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 md:pb-0">
+          <label className="shrink-0">
+            <span className="sr-only">Filter by client</span>
+            <select value={clientFilter} onChange={(event) => setClientFilter(event.target.value)} className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700">
+              <option value="All">All clients</option>
+              <option value="none">No client</option>
+              {clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
+            </select>
+          </label>
           {(['All', 'Ongoing', 'Planned', 'Completed'] as const).map((status) => (
             <button
               key={status}
@@ -132,53 +146,71 @@ export const TripsView: React.FC<TripsViewProps> = ({
           <p className="text-xs text-slate-500 mt-1">Try clearing your search query or schedule a new trip.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-          <ul className="divide-y divide-slate-100 md:hidden">
+        <div className="md:overflow-hidden md:rounded-xl md:border md:border-slate-200 md:bg-white md:shadow-xs">
+          <ul className="space-y-3 md:hidden">
             {filteredTrips.map((trip) => (
-              <li key={trip.id} className="p-4">
-                <button type="button" onClick={() => onSelectTrip(trip.id)} className="block w-full text-left">
-                  <div className="flex items-start justify-between gap-3">
+              <li key={trip.id} className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs">
+                <button type="button" onClick={() => onSelectTrip(trip.id)} className="block w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+                  <div className="flex items-start justify-between gap-2.5">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-bold text-slate-900">{trip.origin.split(',')[0]} → {trip.destination.split(',')[0]}</p>
-                      <p className="truncate text-xs text-slate-500">{trip.cargo_type || 'General Cargo'}</p>
+                      <p className="break-words text-sm font-bold leading-5 text-slate-900">
+                        {trip.origin.split(',')[0]} <span className="text-slate-400">→</span> {trip.destination.split(',')[0]}
+                      </p>
+                      <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">{trip.cargo_type || 'General Cargo'}</p>
                     </div>
                     <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
                       trip.status === 'Ongoing' ? 'bg-blue-50 text-blue-700' : trip.status === 'Planned' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
                     }`}>{trip.status}</span>
                   </div>
-                  <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
-                    <div><dt className="text-slate-500">Truck</dt><dd className="font-semibold text-slate-800">{trip.truck?.license_plate || 'Unassigned'}</dd></div>
-                    <div><dt className="text-slate-500">Driver</dt><dd className="truncate font-semibold text-slate-800">{trip.driver?.full_name || 'Unassigned'}</dd></div>
-                    <div><dt className="text-slate-500">Dates</dt><dd className="text-slate-700">{new Date(trip.scheduled_start).toLocaleDateString()} – {new Date(trip.scheduled_end).toLocaleDateString()}</dd></div>
-                    <div>
-                      <dt className="text-slate-500">{trip.status === 'Completed' ? 'Variance' : 'Spent / budget'}</dt>
-                      <dd className={`font-mono font-bold tabular-nums ${trip.status === 'Completed' ? (trip.profit_loss >= 0 ? 'text-emerald-600' : 'text-rose-600') : trip.is_over_budget ? 'text-rose-600' : 'text-slate-900'}`}>
-                        {trip.status === 'Completed'
-                          ? `${trip.profit_loss >= 0 ? '+' : '-'}${formatTsh(Math.abs(trip.profit_loss))}`
-                          : `${formatTsh(trip.total_spent)} / ${formatTsh(trip.budget_allocated)}`}
+                  <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                    <div className="min-w-0 rounded-lg bg-slate-50 px-2.5 py-2">
+                      <dt className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Truck</dt>
+                      <dd className="mt-0.5 truncate font-semibold text-slate-800">{trip.truck?.license_plate || 'Unassigned'}</dd>
+                    </div>
+                    <div className="min-w-0 rounded-lg bg-slate-50 px-2.5 py-2">
+                      <dt className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Driver</dt>
+                      <dd className="mt-0.5 truncate font-semibold text-slate-800">{trip.driver?.full_name || 'Unassigned'}</dd>
+                    </div>
+                    <div className="min-w-0 rounded-lg bg-slate-50 px-2.5 py-2">
+                      <dt className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Client</dt>
+                      <dd className="mt-0.5 truncate font-semibold text-slate-800">{trip.client?.name || '—'}</dd>
+                    </div>
+                    <div className="min-w-0 rounded-lg bg-slate-50 px-2.5 py-2">
+                      <dt className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Schedule</dt>
+                      <dd className="mt-0.5 text-[11px] leading-4 text-slate-700">
+                        <span className="block">{new Date(trip.scheduled_start).toLocaleDateString()}</span>
+                        <span className="block text-slate-500">to {new Date(trip.scheduled_end).toLocaleDateString()}</span>
                       </dd>
                     </div>
                   </dl>
+                  <div className="mt-2.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-lg border border-slate-100 px-3 py-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{trip.status === 'Completed' ? 'Budget variance' : 'Spent / budget'}</span>
+                    <span className={`font-mono text-xs font-bold tabular-nums ${trip.status === 'Completed' ? (trip.profit_loss >= 0 ? 'text-emerald-600' : 'text-rose-600') : trip.is_over_budget ? 'text-rose-600' : 'text-slate-900'}`}>
+                        {trip.status === 'Completed'
+                          ? `${trip.profit_loss >= 0 ? '+' : '-'}${formatTsh(Math.abs(trip.profit_loss))}`
+                          : `${formatTsh(trip.total_spent)} / ${formatTsh(trip.budget_allocated)}`}
+                    </span>
+                  </div>
                   {trip.delay_logs.length > 0 && (
-                    <span className="mt-2 inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+                    <span className="mt-2 inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-1 text-[11px] font-bold text-amber-800">
                       <AlertTriangle className="h-3 w-3" />{trip.delay_logs.length} delay{trip.delay_logs.length > 1 ? 's' : ''}
                     </span>
                   )}
                 </button>
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2.5">
                   {trip.status === 'Planned' && (
-                    <button type="button" onClick={() => onUpdateTripStatus(trip.id, 'Ongoing')} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold transition bg-blue-50 text-blue-700 hover:bg-blue-100">Start trip</button>
+                    <button type="button" onClick={() => onUpdateTripStatus(trip.id, 'Ongoing')} className="rounded-lg px-2.5 py-2 text-xs font-semibold transition bg-blue-50 text-blue-700 hover:bg-blue-100">Start trip</button>
                   )}
                   {trip.status === 'Ongoing' && (
-                    <button type="button" onClick={() => (onOpenUpdateModal ? onOpenUpdateModal(trip.id) : onSelectTrip(trip.id))} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold transition bg-blue-600 text-white hover:bg-blue-500">Update trip</button>
+                    <button type="button" onClick={() => (onOpenUpdateModal ? onOpenUpdateModal(trip.id) : onSelectTrip(trip.id))} className="rounded-lg px-2.5 py-2 text-xs font-semibold transition bg-blue-600 text-white hover:bg-blue-500">Update trip</button>
                   )}
                   {trip.status === 'Ongoing' && (
-                    <button type="button" onClick={() => setTripToComplete(trip)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold transition bg-emerald-600 text-white hover:bg-emerald-500">Complete</button>
+                    <button type="button" onClick={() => setTripToComplete(trip)} className="rounded-lg px-2.5 py-2 text-xs font-semibold transition bg-emerald-600 text-white hover:bg-emerald-500">Complete</button>
                   )}
                   {trip.status !== 'Completed' && onEditTrip && (
-                    <button type="button" onClick={() => onEditTrip(trip.id)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold transition bg-slate-100 text-slate-700 hover:bg-slate-200">Edit</button>
+                    <button type="button" onClick={() => onEditTrip(trip.id)} className="rounded-lg px-2.5 py-2 text-xs font-semibold transition bg-slate-100 text-slate-700 hover:bg-slate-200">Edit</button>
                   )}
-                  <button type="button" onClick={() => setTripToDelete(trip)} aria-label="Delete trip" className="ml-auto rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600">
+                  <button type="button" onClick={() => setTripToDelete(trip)} aria-label="Delete trip" className="ml-auto rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
@@ -253,6 +285,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
                         <div className="text-xs text-slate-500 mt-0.5 truncate max-w-xs md:text-[11px]">
                           {trip.cargo_type || 'General Cargo'}
                         </div>
+                        <div className="text-[10px] text-slate-500">Client: {trip.client?.name || '—'}</div>
                       </td>
 
                       {/* Truck & Driver */}

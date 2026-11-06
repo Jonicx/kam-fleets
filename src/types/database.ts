@@ -50,10 +50,23 @@ export interface Driver {
   updated_at: string;
 }
 
+export interface Client {
+  id: string;
+  name: string;
+  contact_person?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Trip {
   id: string;
   truck_id: string;
   driver_id: string;
+  client_id?: string | null;
   status: TripStatus;
   origin: string;
   destination: string;
@@ -88,6 +101,7 @@ export interface InitialSparePartInput {
 export interface CreateTripPayload {
   truck_id: string;
   driver_id: string;
+  client_id?: string | null;
   origin: string;
   destination: string;
   scheduled_start: string;
@@ -124,6 +138,7 @@ export interface SparePart {
 export interface Invoice {
   id: string;
   trip_id?: string;
+  client_id?: string;
   driver_id?: string; // TEXT to match app_users.user_id
   invoice_number: string;
   amount: number;
@@ -161,6 +176,7 @@ export type AuditEntityType =
   | 'database'
   | 'truck'
   | 'driver'
+  | 'client'
   | 'team member';
 
 export interface AuditLog {
@@ -179,6 +195,7 @@ export interface AuditLog {
 export interface EnrichedTrip extends Trip {
   truck?: Truck;
   driver?: Driver;
+  client?: Client;
   expenses: Expense[];
   spare_parts: SparePart[];
   total_expenses: number;

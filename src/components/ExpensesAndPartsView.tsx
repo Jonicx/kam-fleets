@@ -117,9 +117,10 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
 
   // Total metrics
   const totalExpenseSum = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  const totalDriverPayments = trips.reduce((sum, trip) => sum + Math.max(0, Number(trip.driver_pay) || 0), 0);
   const totalSparePartsSum = spareParts.reduce((sum, sp) => sum + Number(sp.price), 0);
   const totalTruckServiceSum = truckServiceRecords.reduce((sum, record) => sum + Number(record.price), 0);
-  const totalCombined = totalExpenseSum + totalSparePartsSum + totalTruckServiceSum;
+  const totalCombined = totalExpenseSum + totalDriverPayments + totalSparePartsSum + totalTruckServiceSum;
 
   const dateRangeStartValue = dateRangeStart || dateRangeEnd;
   const dateRangeEndValue = dateRangeEnd || dateRangeStart;
@@ -138,7 +139,7 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
     cityFilter !== 'All' ? `City: ${cityFilter}` : null,
     activeLedger !== 'all'
       ? `Ledger: ${
-          activeLedger === 'expenses' ? 'Trip Expenses' : activeLedger === 'spares' ? 'Spare Parts' : 'Truck Services'
+          activeLedger === 'expenses' ? 'Trip Expenses & Payments' : activeLedger === 'spares' ? 'Spare Parts' : 'Truck Services'
         }`
       : null,
     selectedType !== 'All' ? `Type: ${selectedType}` : null,
@@ -230,6 +231,13 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
       tone: 'purple',
     },
     {
+      key: 'driver-payments',
+      label: 'Driver Payments',
+      value: formatTsh(totalDriverPayments, { maximumFractionDigits: 0 }),
+      subtitle: `${trips.filter((trip) => Number(trip.driver_pay) > 0).length} trip payments`,
+      tone: 'blue',
+    },
+    {
       key: 'spares',
       label: 'Spare Parts',
       value: formatTsh(totalSparePartsSum, { maximumFractionDigits: 0 }),
@@ -262,6 +270,21 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
       amount: Number(e.amount),
       timestamp: e.timestamp,
     })),
+    ...trips
+      .filter((trip) => Number(trip.driver_pay) > 0)
+      .map((trip) => ({
+        id: `driver-payment-${trip.id}`,
+        kind: 'driver_payment' as const,
+        trip_id: trip.id,
+        truck_id: null,
+        reference: '',
+        service_location: null,
+        category: 'Driver Payment',
+        title: `Driver Payment · ${trip.driver?.full_name || 'Assigned driver'}`,
+        description: `${trip.origin} → ${trip.destination}`,
+        amount: Number(trip.driver_pay),
+        timestamp: trip.completed_at ?? trip.scheduled_start,
+      })),
     ...spareParts.map((sp) => ({
       id: sp.id,
       kind: 'spare_part' as const,
@@ -291,7 +314,7 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
   ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   const filteredItems = unifiedItems.filter((item) => {
-    if (activeLedger === 'expenses' && item.kind !== 'expense') return false;
+    if (activeLedger === 'expenses' && item.kind !== 'expense' && item.kind !== 'driver_payment') return false;
     if (activeLedger === 'spares' && item.kind !== 'spare_part') return false;
     if (activeLedger === 'services' && item.kind !== 'truck_service') return false;
     if (selectedType !== 'All' && item.category !== selectedType) return false;
@@ -323,7 +346,8 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
       item.title.toLowerCase().includes(searchLower) ||
       (item.description && item.description.toLowerCase().includes(searchLower)) ||
       item.category.toLowerCase().includes(searchLower) ||
-      item.reference.toLowerCase().includes(searchLower)
+      item.reference.toLowerCase().includes(searchLower) ||
+      Boolean(trip?.client?.name.toLowerCase().includes(searchLower))
     );
   });
 
@@ -339,7 +363,7 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
           </span>
         </h1>
         <p className="text-xs text-slate-500 mt-0.5">
-          Audited breakdown of operational costs: Fuel, Tolls, Police/Bribes checkpoint clearance, Food, and Roadside Spare Parts
+          Audited breakdown of trip costs, including driver payments, fuel, tolls, food, roadside parts, and truck services
         </p>
       </div>
         <div className="flex shrink-0 gap-2 self-start">
@@ -432,12 +456,12 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
         }`}
       >
         <div className="flex flex-col gap-3">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-[1.3fr_1fr]">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[1.3fr_1fr] xl:grid-cols-[1.3fr_1fr_1fr]">
             <div className={`relative rounded-lg border ${searchTerm.trim() ? 'border-amber-300 bg-amber-50/50' : 'border-slate-200 bg-slate-50'}`}>
               <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search disbursements, parts, descriptions..."
+                placeholder="Search disbursements, driver payments, parts..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-4 py-2.5 rounded-lg bg-transparent text-xs text-slate-700 focus:outline-none"
@@ -458,6 +482,22 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
                   <option key={city} value={city}>
                     {city}
                   </option>
+                ))}
+              </select>
+            </div>
+
+            <div className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-[11px] ${
+              selectedType !== 'All' ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-slate-200 bg-slate-50 text-slate-600'
+            }`}>
+              <Filter className="h-3.5 w-3.5 text-slate-400" />
+              <select
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+                aria-label="Filter by category"
+                className="w-full bg-transparent text-xs font-medium text-slate-700 focus:outline-none"
+              >
+                {['All', 'Fuel', 'Tolls', 'Police/Bribes', 'Food', 'Other', 'Driver Payment', 'Spare Part', 'Service'].map((type) => (
+                  <option key={type} value={type}>{type === 'All' ? 'All categories' : type}</option>
                 ))}
               </select>
             </div>
@@ -551,7 +591,7 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
                   {ledger === 'all'
                     ? 'All Disbursements'
                     : ledger === 'expenses'
-                    ? 'Trip Expenses'
+                    ? 'Trip Expenses & Payments'
                     : ledger === 'spares'
                     ? 'Spare Parts'
                     : 'Truck Services'}
@@ -605,6 +645,8 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
                             ? 'bg-emerald-100 text-emerald-800'
                             : item.category === 'Spare Part'
                             ? 'bg-orange-100 text-orange-900 border border-orange-200'
+                            : item.category === 'Driver Payment'
+                            ? 'bg-blue-100 text-blue-800'
                             : item.kind === 'truck_service'
                             ? 'bg-purple-100 text-purple-800 border border-purple-200'
                             : 'bg-purple-100 text-purple-800'
@@ -648,7 +690,9 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
                     </td>
 
                     <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                      {item.kind === 'truck_service' ? (
+                      {item.kind === 'driver_payment' ? (
+                        <span className="text-[10px] font-semibold text-slate-400">Trip cost</span>
+                      ) : item.kind === 'truck_service' ? (
                         <button
                           type="button"
                           onClick={() => {

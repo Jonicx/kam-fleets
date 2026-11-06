@@ -1,6 +1,7 @@
 import {
   Truck,
   Driver,
+  Client,
   Trip,
   Expense,
   SparePart,
@@ -36,6 +37,7 @@ export interface DatabaseSnapshot {
   trucks: Truck[];
   truckServiceRecords: TruckServiceRecord[];
   drivers: Driver[];
+  clients?: Client[];
   trips: Trip[];
   expenses: Expense[];
   spareParts: SparePart[];
@@ -49,6 +51,7 @@ export const SNAPSHOT_COLLECTIONS = [
   'trucks',
   'truckServiceRecords',
   'drivers',
+  'clients',
   'trips',
   'expenses',
   'spareParts',
@@ -73,6 +76,9 @@ export const COMMAND_NAMES = [
   'createDriver',
   'updateDriver',
   'deleteDriver',
+  'createClient',
+  'updateClient',
+  'deleteClient',
   'createTrip',
   'completeTrip',
   'updateTrip',
@@ -97,6 +103,9 @@ export const ADMIN_ONLY_COMMANDS: ReadonlySet<CommandName> = new Set<CommandName
   'reversePayment',
   'deleteTruck',
   'deleteDriver',
+  'createClient',
+  'updateClient',
+  'deleteClient',
   'deleteTrip',
 ]);
 
@@ -188,6 +197,7 @@ export class FleetDomain {
   protected trucks: Truck[] = [];
   protected truckServiceRecords: TruckServiceRecord[] = [];
   protected drivers: Driver[] = [];
+  protected clients: Client[] = [];
   protected trips: Trip[] = [];
   protected expenses: Expense[] = [];
   protected spareParts: SparePart[] = [];
@@ -257,6 +267,7 @@ export class FleetDomain {
       trucks: this.trucks,
       truckServiceRecords: this.truckServiceRecords,
       drivers: this.drivers,
+      clients: this.clients,
       trips: this.trips,
       expenses: this.expenses,
       spareParts: this.spareParts,
@@ -271,6 +282,7 @@ export class FleetDomain {
     this.trucks = snapshot.trucks;
     this.truckServiceRecords = snapshot.truckServiceRecords;
     this.drivers = snapshot.drivers;
+    this.clients = snapshot.clients ?? [];
     this.trips = snapshot.trips;
     this.expenses = snapshot.expenses;
     this.spareParts = snapshot.spareParts;
@@ -284,6 +296,7 @@ export class FleetDomain {
     this.trucks = JSON.parse(JSON.stringify(INITIAL_TRUCKS));
     this.truckServiceRecords = JSON.parse(JSON.stringify(INITIAL_TRUCK_SERVICE_RECORDS));
     this.drivers = JSON.parse(JSON.stringify(INITIAL_DRIVERS));
+    this.clients = [];
     this.trips = JSON.parse(JSON.stringify(INITIAL_TRIPS));
     this.expenses = JSON.parse(JSON.stringify(INITIAL_EXPENSES));
     this.spareParts = JSON.parse(JSON.stringify(INITIAL_SPARE_PARTS));
@@ -306,6 +319,74 @@ export class FleetDomain {
 
   public getAuditActor(): string {
     return this.auditActor;
+  }
+
+  public getClients(): Client[] {
+    return [...this.clients].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  public getClient(id: string): Client | undefined {
+    return this.clients.find((client) => client.id === id);
+  }
+
+  public createClient(data: Omit<Client, 'id' | 'created_at' | 'updated_at'>): Client {
+    const name = requireText(data.name, 'Client name', 150);
+    if (this.clients.some((client) => client.name.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+      throw new Error(`Client "${name}" already exists.`);
+    }
+    const email = optionalText(data.email, 'Client email', 254) || undefined;
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Enter a valid client email address.');
+    const now = this.nowIso();
+    const client: Client = {
+      id: this.newId(),
+      name,
+      contact_person: optionalText(data.contact_person, 'Contact person', 150) || undefined,
+      phone: optionalText(data.phone, 'Client phone', 30) || undefined,
+      email: email?.toLocaleLowerCase(),
+      address: optionalText(data.address, 'Client address', 500) || undefined,
+      notes: optionalText(data.notes, 'Client notes', 2000) || undefined,
+      created_at: now,
+      updated_at: now,
+    };
+    this.clients.push(client);
+    this.recordAudit('created client', 'client', client.id, `Created client ${client.name}.`, client);
+    return client;
+  }
+
+  public updateClient(id: string, updates: Partial<Omit<Client, 'id' | 'created_at' | 'updated_at'>>): Client {
+    const index = this.clients.findIndex((client) => client.id === id);
+    if (index === -1) throw new Error(`Client ${id} not found.`);
+    const previous = this.clients[index];
+    const name = updates.name === undefined ? previous.name : requireText(updates.name, 'Client name', 150);
+    if (this.clients.some((client) => client.id !== id && client.name.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+      throw new Error(`Client "${name}" already exists.`);
+    }
+    const email = updates.email === undefined ? previous.email : optionalText(updates.email, 'Client email', 254) || undefined;
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Enter a valid client email address.');
+    const updated: Client = {
+      ...previous,
+      ...updates,
+      name,
+      contact_person: updates.contact_person === undefined ? previous.contact_person : optionalText(updates.contact_person, 'Contact person', 150) || undefined,
+      phone: updates.phone === undefined ? previous.phone : optionalText(updates.phone, 'Client phone', 30) || undefined,
+      email: email?.toLocaleLowerCase(),
+      address: updates.address === undefined ? previous.address : optionalText(updates.address, 'Client address', 500) || undefined,
+      notes: updates.notes === undefined ? previous.notes : optionalText(updates.notes, 'Client notes', 2000) || undefined,
+      updated_at: this.nowIso(),
+    };
+    this.clients[index] = updated;
+    this.recordAudit('updated client', 'client', id, `Updated client ${updated.name}.`, { before: previous, after: updated });
+    return updated;
+  }
+
+  public deleteClient(id: string) {
+    const client = this.clients.find((item) => item.id === id);
+    if (!client) return;
+    if (this.trips.some((trip) => trip.client_id === id) || this.invoices.some((invoice) => invoice.client_id === id)) {
+      throw new Error(`Cannot delete ${client.name} because trips or invoices are linked to this client.`);
+    }
+    this.clients = this.clients.filter((item) => item.id !== id);
+    this.recordAudit('deleted client', 'client', id, `Deleted client ${client.name}.`, client);
   }
 
   protected recordAudit(
@@ -334,8 +415,13 @@ export class FleetDomain {
     data: Omit<Invoice, 'id' | 'created_at' | 'invoice_number'> & { invoice_number?: string },
   ): Invoice {
     const trip = this.trips.find((item) => item.id === data.trip_id);
-    if (!trip) throw new Error(`Trip ${data.trip_id} not found.`);
-    if (trip.status !== 'Completed') throw new Error('Invoices can only be issued for completed trips.');
+    if (data.trip_id && !trip) throw new Error(`Trip ${data.trip_id} not found.`);
+    if (!trip && !data.driver_id) throw new Error('An invoice must be linked to a trip or driver.');
+    if (trip && !data.driver_id && trip.status === 'Planned') {
+      throw new Error('Invoices can only be issued for ongoing or completed trips.');
+    }
+    const clientId = data.client_id ?? (data.driver_id ? undefined : trip?.client_id ?? undefined);
+    if (clientId && !this.clients.some((client) => client.id === clientId)) throw new Error(`Client ${clientId} not found.`);
     const amount = requireWholeAmount(data.amount, 'Invoice amount');
     if (!Number.isFinite(new Date(data.issued_at).getTime()) || !Number.isFinite(new Date(data.due_at).getTime())) {
       throw new Error('Invoice issue date and due date must be valid dates.');
@@ -351,15 +437,18 @@ export class FleetDomain {
     }
     const invoice: Invoice = {
       id: this.newId(),
-      trip_id: trip.id,
+      trip_id: trip?.id,
+      client_id: clientId,
+      driver_id: data.driver_id,
       invoice_number: invoiceNumber,
       amount,
       issued_at: new Date(data.issued_at).toISOString(),
       due_at: new Date(data.due_at).toISOString(),
+      reason: optionalText(data.reason, 'Invoice reason', 1000) || undefined,
       created_at: this.nowIso(),
     };
     this.invoices.unshift(invoice);
-    this.recordAudit('created invoice', 'invoice', invoice.id, `Issued invoice ${invoice.invoice_number} for Tsh ${amount}.`, invoice, trip.id);
+    this.recordAudit('created invoice', 'invoice', invoice.id, `Issued invoice ${invoice.invoice_number} for Tsh ${amount}.`, invoice, trip?.id);
     return invoice;
   }
 
@@ -734,6 +823,7 @@ export class FleetDomain {
     return this.trips.map((trip) => {
       const truck = this.trucks.find((t) => t.id === trip.truck_id);
       const driver = this.drivers.find((d) => d.id === trip.driver_id);
+      const client = trip.client_id ? this.clients.find((item) => item.id === trip.client_id) : undefined;
       const expenses = this.expenses.filter((e) => e.trip_id === trip.id);
       const spare_parts = this.spareParts.filter((sp) => sp.trip_id === trip.id);
 
@@ -767,6 +857,7 @@ export class FleetDomain {
         ...trip,
         truck,
         driver,
+        client,
         expenses,
         spare_parts,
         driver_pay,
@@ -830,6 +921,9 @@ export class FleetDomain {
     if (!driver) {
       throw new Error(`Referential Error: Selected Driver ID '${payload.driver_id}' does not exist.`);
     }
+    if (payload.client_id && !this.clients.some((client) => client.id === payload.client_id)) {
+      throw new Error(`Referential Error: Selected Client ID '${payload.client_id}' does not exist.`);
+    }
     if (driver.status !== 'Available') {
       throw new Error(
         `Double-Booking Prevention: Driver '${driver.full_name}' is currently '${driver.status}' and cannot be dispatched.`
@@ -872,6 +966,7 @@ export class FleetDomain {
       id: tripId,
       truck_id: truck.id,
       driver_id: driver.id,
+      client_id: payload.client_id || undefined,
       status: 'Planned',
       origin: payload.origin.trim(),
       destination: payload.destination.trim(),
@@ -959,6 +1054,9 @@ export class FleetDomain {
     if (updates.driver_id && updates.driver_id !== oldTrip.driver_id) {
       const driver = this.drivers.find((d) => d.id === updates.driver_id);
       if (!driver) throw new Error(`Foreign Key Violation: Driver ID ${updates.driver_id} does not exist.`);
+    }
+    if (updates.client_id && !this.clients.some((client) => client.id === updates.client_id)) {
+      throw new Error(`Foreign Key Violation: Client ID ${updates.client_id} does not exist.`);
     }
 
     const newStatus = updates.status || oldTrip.status;
@@ -1345,6 +1443,7 @@ export class FleetDomain {
     const allowedKeys = [
       'truck_id',
       'driver_id',
+      'client_id',
       'status',
       'origin',
       'destination',

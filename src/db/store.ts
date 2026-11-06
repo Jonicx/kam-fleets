@@ -100,6 +100,7 @@ class DatabaseStore extends FleetDomain {
         ? savedServiceRecords
         : [...INITIAL_TRUCK_SERVICE_RECORDS];
       this.drivers = this.readStored('drivers', sample ? [...INITIAL_DRIVERS] : []);
+      this.clients = this.readStored('clients', []);
       this.trips = this.readStored('trips', sample ? [...INITIAL_TRIPS] : []);
       this.expenses = this.readStored('expenses', sample ? [...INITIAL_EXPENSES] : []);
       this.spareParts = this.readStored('spare_parts', sample ? [...INITIAL_SPARE_PARTS] : []);
@@ -115,6 +116,7 @@ class DatabaseStore extends FleetDomain {
       this.trucks = sample ? [...INITIAL_TRUCKS] : [];
       this.truckServiceRecords = sample ? [...INITIAL_TRUCK_SERVICE_RECORDS] : [];
       this.drivers = sample ? [...INITIAL_DRIVERS] : [];
+      this.clients = [];
       this.trips = sample ? [...INITIAL_TRIPS] : [];
       this.expenses = sample ? [...INITIAL_EXPENSES] : [];
       this.spareParts = sample ? [...INITIAL_SPARE_PARTS] : [];
@@ -131,6 +133,7 @@ class DatabaseStore extends FleetDomain {
       localStorage.setItem(this.storageKey('trucks'), JSON.stringify(this.trucks));
       localStorage.setItem(this.storageKey('truck_service_records'), JSON.stringify(this.truckServiceRecords));
       localStorage.setItem(this.storageKey('drivers'), JSON.stringify(this.drivers));
+      localStorage.setItem(this.storageKey('clients'), JSON.stringify(this.clients));
       localStorage.setItem(this.storageKey('trips'), JSON.stringify(this.trips));
       localStorage.setItem(this.storageKey('expenses'), JSON.stringify(this.expenses));
       localStorage.setItem(this.storageKey('spare_parts'), JSON.stringify(this.spareParts));

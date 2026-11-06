@@ -1,7 +1,17 @@
-const CACHE_NAME = 'kam-fleets-shell-v3';
-const RUNTIME_CACHE = 'kam-fleets-runtime-v3';
+const CACHE_NAME = 'kam-fleets-shell-v4';
+const RUNTIME_CACHE = 'kam-fleets-runtime-v4';
 const APP_BASE = '/kam-fleets/';
-const APP_SHELL = [APP_BASE, `${APP_BASE}index.html`, `${APP_BASE}manifest.json`];
+const APP_SHELL = [
+  APP_BASE,
+  `${APP_BASE}index.html`,
+  `${APP_BASE}manifest.json`,
+  `${APP_BASE}favicon.png`,
+  `${APP_BASE}apple-touch-icon.png`,
+  `${APP_BASE}icon-192.png`,
+  `${APP_BASE}icon-512.png`,
+  `${APP_BASE}brand-logo.png`,
+  `${APP_BASE}brand-logo-light.png`,
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

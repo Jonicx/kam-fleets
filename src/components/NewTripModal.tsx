@@ -18,6 +18,7 @@ import {
 import {
   Truck,
   Driver,
+  Client,
   ExpenseType,
   CreateTripPayload,
   InitialExpenseInput,
@@ -28,6 +29,7 @@ import { formatTsh } from '../utils/currency.ts';
 interface NewTripModalProps {
   trucks: Truck[];
   drivers: Driver[];
+  clients: Client[];
   onClose: () => void;
   onCreateTrip: (payload: CreateTripPayload) => void;
 }
@@ -35,6 +37,7 @@ interface NewTripModalProps {
 export const NewTripModal: React.FC<NewTripModalProps> = ({
   trucks,
   drivers,
+  clients,
   onClose,
   onCreateTrip,
 }) => {
@@ -45,6 +48,7 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
   // Form states
   const [truckId, setTruckId] = useState('');
   const [driverId, setDriverId] = useState('');
+  const [clientId, setClientId] = useState('');
   const [origin, setOrigin] = useState('');
   const [destination, setDestination] = useState('');
 
@@ -226,6 +230,7 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
       onCreateTrip({
         truck_id: truckId,
         driver_id: driverId,
+        client_id: clientId || undefined,
         origin: origin.trim(),
         destination: destination.trim(),
         scheduled_start: scheduledStart,
@@ -410,6 +415,14 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
               </div>
             </div>
           </div>
+
+          <label className="block text-xs font-semibold text-slate-700">
+            Client (optional)
+            <select value={clientId} onChange={(event) => setClientId(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">No client</option>
+              {clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
+            </select>
+          </label>
 
           {/* SECTION 2: ROUTING & SCHEDULE */}
           <div className="space-y-3">

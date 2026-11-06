@@ -169,35 +169,35 @@ export const DriversView: React.FC<DriversViewProps> = ({
       </div>
 
       {/* Drivers Table */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-        <ul className="divide-y divide-slate-100 md:hidden">
+      <div className="md:overflow-hidden md:rounded-xl md:border md:border-slate-200 md:bg-white md:shadow-xs">
+        <ul className="space-y-3 md:hidden">
           {filteredDrivers.map((driver) => (
-            <li key={driver.id} className="p-4">
+            <li key={driver.id} className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-slate-900">{driver.full_name}</p>
-                  <p className="font-mono text-xs text-slate-500">{driver.license_number}</p>
+                  <p className="truncate text-sm font-bold leading-5 text-slate-900">{driver.full_name}</p>
+                  <p className="mt-0.5 truncate font-mono text-xs text-slate-500">{driver.license_number}</p>
                 </div>
                 <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
                   driver.status === 'Available' ? 'bg-emerald-100 text-emerald-800' : driver.status === 'On Trip' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200 text-slate-700'
                 }`}>{driver.status}</span>
               </div>
-              <dl className="mt-3 grid grid-cols-2 gap-3 text-xs">
-                <div><dt className="text-slate-500">Phone</dt><dd><a href={`tel:${driver.phone}`} className="font-semibold text-blue-700">{driver.phone}</a></dd></div>
-                <div><dt className="text-slate-500">Experience</dt><dd className="font-semibold text-slate-800">{driver.experience_years || 1} Years</dd></div>
+              <dl className="mt-3 grid grid-cols-2 gap-2 rounded-lg bg-slate-50 px-3 py-2.5 text-xs">
+                <div className="min-w-0"><dt className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Phone</dt><dd className="mt-0.5 truncate"><a href={`tel:${driver.phone}`} className="font-semibold text-blue-700">{driver.phone}</a></dd></div>
+                <div className="min-w-0 border-l border-slate-200 pl-3"><dt className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Experience</dt><dd className="mt-0.5 font-semibold text-slate-800">{driver.experience_years || 1} Years</dd></div>
               </dl>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap items-center gap-1.5">
                 {driver.status !== 'On Trip' && (
                   <button
                     type="button"
                     onClick={() => onUpdateDriverStatus(driver.id, driver.status === 'Off Duty' ? 'Available' : 'Off Duty')}
-                    className="rounded-lg px-2.5 py-1.5 text-xs font-semibold transition bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    className="rounded-lg px-2.5 py-2 text-xs font-semibold transition bg-slate-100 text-slate-700 hover:bg-slate-200"
                   >
                     {driver.status === 'Off Duty' ? 'Set Available' : 'Set Off Duty'}
                   </button>
                 )}
-                <button type="button" onClick={() => openEditDriver(driver)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold transition bg-slate-100 text-slate-700 hover:bg-slate-200">Edit</button>
-                <button type="button" onClick={() => handleDelete(driver.id)} aria-label={`Delete ${driver.full_name}`} className="ml-auto rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600">
+                <button type="button" onClick={() => openEditDriver(driver)} className="rounded-lg px-2.5 py-2 text-xs font-semibold transition bg-slate-100 text-slate-700 hover:bg-slate-200">Edit</button>
+                <button type="button" onClick={() => handleDelete(driver.id)} aria-label={`Delete ${driver.full_name}`} className="ml-auto rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>

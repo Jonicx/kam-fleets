@@ -277,7 +277,7 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
         <p role="status" className="rounded-xl border border-slate-200 bg-white px-5 py-4 text-sm font-semibold text-slate-700 shadow-sm">
-          In a min Twizzy...
+          In a min twizzy...
         </p>
       </main>
     );
@@ -287,7 +287,11 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
         <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8">
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-600">KAM Fleets</p>
+          <img
+            src={`${import.meta.env.BASE_URL}brand-logo-light.png`}
+            alt="KAM Fleets"
+            className="h-10 w-30 object-contain object-left"
+          />
           <h1 className="mt-2 text-2xl font-extrabold text-slate-900">Waiting for approval</h1>
           <p className="mt-2 text-sm text-slate-600">
             <strong className="text-slate-900">{pendingMember.email}</strong> is signed in, but an administrator needs to approve
@@ -318,7 +322,7 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
 
   if (!member) {
     const titles: Record<AuthMode, string> = {
-      'sign-in': 'Sign in to your workspace',
+      'sign-in': 'Sign in',
       'sign-up': 'Create your workspace account',
       forgot: 'Reset your password',
       reset: 'Choose a new password',
@@ -334,7 +338,11 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
         <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8">
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-600">KAM Fleets</p>
+              <img
+                src={`${import.meta.env.BASE_URL}brand-logo-light.png`}
+                alt="KAM Fleets"
+                className="h-10 w-30 object-contain object-left"
+              />
               <div className="flex items-center gap-1.5">
                 {isOnline ? (
                   <Wifi className="h-4 w-4 text-emerald-600" />
@@ -346,12 +354,7 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
                 </span>
               </div>
             </div>
-            <h1 className="mt-2 text-2xl font-extrabold text-slate-900">{titles[mode]}</h1>
-            <p className="mt-2 text-sm text-slate-500">
-              {mode === 'sign-up'
-                ? 'New accounts can see team data once an administrator approves them.'
-                : 'Your team shares one fleet workspace, secured with Neon Auth and saved to Neon Postgres.'}
-            </p>
+            <h1 className="mt-2 text-xl font-extrabold text-slate-900">{titles[mode]}</h1>
             {!isOnline && (
               <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
                 <p className="text-xs font-semibold text-amber-800">

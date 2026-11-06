@@ -31,10 +31,17 @@ const DRIVERS: TableSpec = {
     experience_years: 'experience_years', created_at: 'created_at', updated_at: 'updated_at',
   },
 };
+const CLIENTS: TableSpec = {
+  table: 'clients',
+  columns: {
+    id: 'id', name: 'name', contact_person: 'contact_person', phone: 'phone', email: 'email',
+    address: 'address', notes: 'notes', created_at: 'created_at', updated_at: 'updated_at',
+  },
+};
 const TRIPS: TableSpec = {
   table: 'trips',
   columns: {
-    id: 'id', truck_id: 'truck_id', driver_id: 'driver_id', status: 'status', origin: 'origin', destination: 'destination',
+    id: 'id', truck_id: 'truck_id', driver_id: 'driver_id', client_id: 'client_id', status: 'status', origin: 'origin', destination: 'destination',
     scheduled_start: 'scheduled_start', scheduled_end: 'scheduled_end', budget_allocated: 'budget_allocated',
     driver_pay: 'driver_pay', cargo_type: 'cargo_type', notes: 'notes', final_profit_loss: 'final_profit_loss',
     total_expenses_cost: 'total_expenses_cost', total_spare_parts_cost: 'total_spare_parts_cost',
@@ -81,8 +88,9 @@ const SPARE_PARTS: TableSpec = {
 const INVOICES: TableSpec = {
   table: 'invoices',
   columns: {
-    id: 'id', trip_id: 'trip_id', invoice_number: 'invoice_number', amount: 'amount', issued_at: 'issued_at',
-    due_at: 'due_at', created_at: 'created_at', voided_at: 'voided_at', void_reason: 'void_reason',
+    id: 'id', trip_id: 'trip_id', client_id: 'client_id', driver_id: 'driver_id', invoice_number: 'invoice_number',
+    amount: 'amount', issued_at: 'issued_at', due_at: 'due_at', reason: 'reason', created_at: 'created_at',
+    voided_at: 'voided_at', void_reason: 'void_reason',
   },
   numeric: ['amount'],
   actorColumn: 'recorded_by',
@@ -116,9 +124,10 @@ async function selectAll(client: PoolClient, spec: TableSpec, orderBy = 'created
 }
 
 export async function loadSnapshot(client: PoolClient): Promise<DatabaseSnapshot> {
-  const [trucks, drivers, trips, serviceRecords, delayLogs, expenses, spareParts, invoices, payments] = await Promise.all([
+  const [trucks, drivers, clients, trips, serviceRecords, delayLogs, expenses, spareParts, invoices, payments] = await Promise.all([
     selectAll(client, TRUCKS),
     selectAll(client, DRIVERS),
+    selectAll(client, CLIENTS),
     selectAll(client, TRIPS),
     selectAll(client, SERVICE_RECORDS),
     selectAll(client, DELAY_LOGS, 'occurred_at DESC'),
@@ -131,7 +140,7 @@ export async function loadSnapshot(client: PoolClient): Promise<DatabaseSnapshot
   const reversalByPayment = new Map<string, Row>((reversals.rows as Row[]).map((row) => [String(row.payment_id), row]));
   const audit = await client.query(
     `SELECT id, actor_name, action, entity_type, entity_id, related_trip_id, summary, details, occurred_at
-     FROM audit_logs ORDER BY occurred_at DESC, id LIMIT $1`,
+     FROM audit_logs ORDER BY occurred_at DESC, id DESC LIMIT $1`,
     [MAX_AUDIT_LOGS],
   );
 
@@ -143,6 +152,7 @@ export async function loadSnapshot(client: PoolClient): Promise<DatabaseSnapshot
   return {
     trucks: trucks as never,
     drivers: drivers as never,
+    clients: clients as never,
     trips: (trips as unknown as Trip[]).map((trip) => ({ ...trip, delay_logs: logsByTrip.get(trip.id) ?? [] })),
     truckServiceRecords: serviceRecords as never,
     expenses: expenses as never,
@@ -154,21 +164,64 @@ export async function loadSnapshot(client: PoolClient): Promise<DatabaseSnapshot
         ? { ...payment, reversed_at: (reversal.reversed_at as Date).toISOString(), reversal_reason: String(reversal.reason) }
         : payment;
     }),
-    auditLogs: (audit.rows as Row[]).map((row) => {
-      const log: AuditLog = {
-        id: String(row.id),
-        actor: String(row.actor_name),
-        action: String(row.action),
-        entity_type: row.entity_type as AuditLog['entity_type'],
-        entity_id: String(row.entity_id),
-        summary: String(row.summary),
-        timestamp: (row.occurred_at as Date).toISOString(),
-      };
-      if (row.related_trip_id) log.related_trip_id = String(row.related_trip_id);
-      if (row.details !== null && row.details !== undefined) log.details = JSON.stringify(row.details);
-      return log;
-    }),
+    auditLogs: (audit.rows as Row[]).map(toAuditLog),
     auditActor: '',
+  };
+}
+
+export interface AuditHistoryCursor {
+  id: string;
+}
+
+export interface AuditHistoryPage {
+  logs: AuditLog[];
+  total: number;
+  hasMore: boolean;
+}
+
+function toAuditLog(row: Row): AuditLog {
+  const timestamp = row.occurred_at instanceof Date
+    ? row.occurred_at.toISOString()
+    : new Date(String(row.occurred_at)).toISOString();
+  const log: AuditLog = {
+    id: String(row.id),
+    actor: String(row.actor_name),
+    action: String(row.action),
+    entity_type: row.entity_type as AuditLog['entity_type'],
+    entity_id: String(row.entity_id),
+    summary: String(row.summary),
+    timestamp,
+  };
+  if (row.related_trip_id) log.related_trip_id = String(row.related_trip_id);
+  if (row.details !== null && row.details !== undefined) log.details = JSON.stringify(row.details);
+  return log;
+}
+
+export async function loadOlderAuditHistory(
+  client: PoolClient,
+  cursor: AuditHistoryCursor | null,
+): Promise<AuditHistoryPage> {
+  const [countResult, pageResult] = await Promise.all([
+    client.query('SELECT COUNT(*)::text AS total FROM audit_logs'),
+    client.query(
+      `SELECT page.id, page.actor_name, page.action, page.entity_type, page.entity_id,
+              page.related_trip_id, page.summary, page.details, page.occurred_at
+       FROM audit_logs AS page
+       WHERE $1::uuid IS NULL OR EXISTS (
+         SELECT 1 FROM audit_logs AS cursor_log
+         WHERE cursor_log.id = $1::uuid
+           AND (page.occurred_at, page.id) < (cursor_log.occurred_at, cursor_log.id)
+       )
+       ORDER BY page.occurred_at DESC, page.id DESC
+       LIMIT 51`,
+      [cursor?.id ?? null],
+    ),
+  ]);
+  const rows = pageResult.rows as Row[];
+  return {
+    logs: rows.slice(0, 50).map(toAuditLog),
+    total: Number(countResult.rows[0].total),
+    hasMore: rows.length > 50,
   };
 }
 
@@ -241,6 +294,7 @@ export async function saveChanges(
   const diffs = {
     trucks: diffRows(TRUCKS, asRows(before.trucks), asRows(after.trucks)),
     drivers: diffRows(DRIVERS, asRows(before.drivers), asRows(after.drivers)),
+    clients: diffRows(CLIENTS, asRows(before.clients ?? []), asRows(after.clients ?? [])),
     trips: diffRows(TRIPS, asRows(before.trips), asRows(after.trips), withoutDelayLogs),
     serviceRecords: diffRows(SERVICE_RECORDS, asRows(before.truckServiceRecords), asRows(after.truckServiceRecords)),
     delayLogs: diffRows(DELAY_LOGS, flattenDelayLogs(before.trips), flattenDelayLogs(after.trips)),
@@ -252,7 +306,7 @@ export async function saveChanges(
 
   const deleteOrder = [
     diffs.delayLogs, diffs.expenses, diffs.spareParts, diffs.serviceRecords, diffs.payments, diffs.invoices,
-    diffs.trips, diffs.drivers, diffs.trucks,
+    diffs.trips, diffs.drivers, diffs.trucks, diffs.clients,
   ];
   for (const diff of deleteOrder) {
     if (diff.deletes.length === 0) continue;
@@ -263,7 +317,7 @@ export async function saveChanges(
   }
 
   const upsertOrder = [
-    diffs.trucks, diffs.drivers, diffs.trips, diffs.serviceRecords, diffs.delayLogs, diffs.expenses,
+    diffs.trucks, diffs.drivers, diffs.clients, diffs.trips, diffs.serviceRecords, diffs.delayLogs, diffs.expenses,
     diffs.spareParts, diffs.invoices, diffs.payments,
   ];
   const previousPayments = byId(before.payments);
@@ -331,7 +385,7 @@ export class ServerDomain extends FleetDomain {
     this.applySnapshot(structuredClone({ ...snapshot, auditActor: actorName }));
     this.usedIds = new Set(
       [
-        ...snapshot.trucks, ...snapshot.drivers, ...snapshot.trips, ...snapshot.truckServiceRecords,
+        ...snapshot.trucks, ...snapshot.drivers, ...(snapshot.clients ?? []), ...snapshot.trips, ...snapshot.truckServiceRecords,
         ...snapshot.expenses, ...snapshot.spareParts, ...snapshot.invoices, ...snapshot.payments, ...snapshot.auditLogs,
         ...snapshot.trips.flatMap((trip) => trip.delay_logs ?? []),
       ].map((row) => row.id),

@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Receipt } from 'lucide-react';
-import { EnrichedTrip, Invoice, Payment, PaymentMethod, Driver } from '../types/database.ts';
+import { Client, EnrichedTrip, Invoice, Payment, PaymentMethod, Driver } from '../types/database.ts';
 import { formatTsh } from '../utils/currency.ts';
 import { AccountingMetric } from './AdminDashboardPrimitives.tsx';
 import { DateRange, formatDate, getInvoiceStatus, isWithinRange } from './adminDashboardUtils.ts';
 import { ReasonModal } from './ReasonModal.tsx';
-import { printInvoice } from './printInvoice.ts';
+import { printInvoice, printReceipt } from './printInvoice.ts';
 
 interface AdminBillingSectionProps {
   invoicedAmount: number;
@@ -15,6 +15,7 @@ interface AdminBillingSectionProps {
   reportTripInvoices: Invoice[];
   trips: EnrichedTrip[];
   drivers: Driver[];
+  clients: Client[];
   payments: Payment[];
   reportRange: DateRange;
   completedTripsForInvoice: EnrichedTrip[];
@@ -23,6 +24,8 @@ interface AdminBillingSectionProps {
   onInvoiceAmountChange: (value: string) => void;
   onInvoiceTripIdChange: (value: string) => void;
   onInvoiceDriverIdChange: (value: string) => void;
+  invoiceClientId: string;
+  onInvoiceClientIdChange: (value: string) => void;
   onInvoiceLinkedTripIdChange: (value: string) => void;
   invoiceReason: string;
   onInvoiceReasonChange: (value: string) => void;
@@ -66,6 +69,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
   reportTripInvoices,
   trips,
   drivers,
+  clients,
   payments,
   reportRange,
   completedTripsForInvoice,
@@ -74,6 +78,8 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
   onInvoiceAmountChange,
   onInvoiceTripIdChange,
   onInvoiceDriverIdChange,
+  invoiceClientId,
+  onInvoiceClientIdChange,
   onInvoiceLinkedTripIdChange,
   invoiceReason,
   onInvoiceReasonChange,
@@ -115,12 +121,33 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
     payments.filter((payment) => payment.invoice_id === invoiceId).reduce((sum, payment) => sum + Number(payment.amount), 0);
   const tripFor = (invoice: Invoice) => trips.find((item) => item.id === invoice.trip_id);
   const driverFor = (invoice: Invoice) => drivers.find((item) => item.id === invoice.driver_id);
+  const clientFor = (invoice: Invoice) => clients.find((item) => item.id === invoice.client_id) ?? tripFor(invoice)?.client;
   const handlePrint = (invoice: Invoice) => {
     setActionError('');
     try {
-      printInvoice(invoice, tripFor(invoice), driverFor(invoice), paidFor(invoice.id));
+      printInvoice(invoice, tripFor(invoice), driverFor(invoice), paidFor(invoice.id), clientFor(invoice));
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'The invoice could not be printed.');
+    }
+  };
+  const handlePrintReceipt = (payment: Payment, invoice: Invoice) => {
+    setActionError('');
+    try {
+      const paidBefore = payments
+        .filter((item) =>
+          item.invoice_id === invoice.id &&
+          (
+            new Date(item.paid_at).getTime() < new Date(payment.paid_at).getTime() ||
+            (
+              item.paid_at === payment.paid_at &&
+              new Date(item.created_at).getTime() < new Date(payment.created_at).getTime()
+            )
+          ),
+        )
+        .reduce((sum, item) => sum + Number(item.amount), 0);
+      printReceipt(payment, invoice, tripFor(invoice), clientFor(invoice), driverFor(invoice), paidBefore);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'The payment receipt could not be printed.');
     }
   };
   const voidedInvoices = allInvoices.filter((invoice) => invoice.voided_at && isWithinRange(invoice.issued_at, reportRange));
@@ -152,7 +179,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
             <Receipt className="h-4 w-4 text-blue-600" />
             <div>
               <h2 className="text-sm font-bold text-slate-900">Invoices and cash receipts</h2>
-              <p className="mt-1 text-xs text-slate-500">Issue invoices for completed trips and record partial or full payments.</p>
+              <p className="mt-1 text-xs text-slate-500">Issue invoices for ongoing or completed trips and record partial or full payments.</p>
             </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -172,6 +199,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
                     <div className="min-w-0">
                       <span className="block font-bold text-slate-800">{invoice.invoice_number}</span>
                       <span className="block truncate text-[10px] text-slate-500">{trip ? `${trip.origin} → ${trip.destination}` : 'Trip unavailable'}</span>
+                      <span className="block truncate text-[10px] text-slate-500">Client: {clientFor(invoice)?.name ?? '—'}</span>
                     </div>
                     <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${statusClass(status)}`}>{status}</span>
                   </div>
@@ -195,6 +223,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
                 <tr>
                   <th className="px-3 py-2.5">Invoice</th>
                   <th className="px-3 py-2.5">Trip</th>
+                  <th className="px-3 py-2.5">Client</th>
                   <th className="px-3 py-2.5 text-right">Amount</th>
                   <th className="px-3 py-2.5 text-right">Received</th>
                   <th className="px-3 py-2.5 text-right">Balance</th>
@@ -218,6 +247,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
                       <td className="max-w-[180px] truncate px-3 py-2.5 text-slate-700">
                         {trip ? `${trip.origin} → ${trip.destination}` : 'Trip unavailable'}
                       </td>
+                      <td className="max-w-[140px] truncate px-3 py-2.5 text-slate-700">{clientFor(invoice)?.name ?? '—'}</td>
                       <td className="whitespace-nowrap px-3 py-2.5 text-right">{formatTsh(invoice.amount)}</td>
                       <td className="whitespace-nowrap px-3 py-2.5 text-right text-emerald-700">{formatTsh(paid)}</td>
                       <td className="whitespace-nowrap px-3 py-2.5 text-right font-bold">{formatTsh(Math.max(0, invoice.amount - paid))}</td>
@@ -235,7 +265,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
                   );
                 })}
                 {reportInvoices.length === 0 && (
-                  <tr><td colSpan={7} className="px-3 py-6 text-center text-slate-500">No invoices in this report period.</td></tr>
+                  <tr><td colSpan={8} className="px-3 py-6 text-center text-slate-500">No invoices in this report period.</td></tr>
                 )}
               </tbody>
             </table>
@@ -246,18 +276,18 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
           <details className="mt-3 rounded-lg border border-slate-100">
             <summary className="cursor-pointer px-3 py-2.5 text-xs font-bold text-slate-700">
               Payment transactions ({payments.filter((payment) =>
-                reportTripInvoices.some((invoice) => invoice.id === payment.invoice_id) &&
+                reportInvoices.some((invoice) => invoice.id === payment.invoice_id) &&
                 isWithinRange(payment.paid_at, reportRange),
               ).length})
             </summary>
             <div className="max-h-56 divide-y divide-slate-100 overflow-y-auto border-t border-slate-100 px-3">
               {allPayments
                 .filter((payment) =>
-                  reportTripInvoices.some((invoice) => invoice.id === payment.invoice_id) &&
+                  reportInvoices.some((invoice) => invoice.id === payment.invoice_id) &&
                   isWithinRange(payment.paid_at, reportRange),
                 )
                 .map((payment) => {
-                  const invoice = reportTripInvoices.find((item) => item.id === payment.invoice_id);
+                  const invoice = reportInvoices.find((item) => item.id === payment.invoice_id);
                   return (
                     <div key={payment.id} className="flex items-start justify-between gap-3 py-2 text-[11px]">
                       <div className="min-w-0">
@@ -269,6 +299,11 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-1">
                         <strong className={payment.reversed_at ? 'text-slate-400 line-through' : 'text-emerald-700'}>{formatTsh(payment.amount)}</strong>
+                        {invoice && (
+                          <button type="button" onClick={() => handlePrintReceipt(payment, invoice)} className="text-[10px] font-bold text-blue-700 hover:underline">
+                            Print receipt
+                          </button>
+                        )}
                         {!payment.reversed_at && (
                           <button type="button" onClick={() => setReversingPayment(payment)} className="text-[10px] font-bold text-rose-700 hover:underline">
                             Reverse
@@ -279,7 +314,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
                   );
                 })}
               {payments.filter((payment) =>
-                reportTripInvoices.some((invoice) => invoice.id === payment.invoice_id) &&
+                reportInvoices.some((invoice) => invoice.id === payment.invoice_id) &&
                 isWithinRange(payment.paid_at, reportRange),
               ).length === 0 && <p className="py-4 text-center text-[11px] text-slate-500">No payments received in this period.</p>}
             </div>
@@ -348,23 +383,36 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
               </button>
             </div>
             {invoiceType === 'trip' && (
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                Trip (Completed or Ongoing)
-                <select
-                  value={selectedInvoiceTrip?.id || ''}
-                  onChange={(event) => {
-                    onInvoiceTripIdChange(event.target.value);
-                    onInvoiceAmountChange('');
-                  }}
-                  required
-                  className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium normal-case tracking-normal text-slate-700"
-                >
-                  <option value="" disabled>Select a trip</option>
-                  {completedTripsForInvoice.map((trip) => (
-                    <option key={trip.id} value={trip.id}>{trip.origin} → {trip.destination} · {formatTsh(trip.budget_allocated)} ({trip.status})</option>
-                  ))}
-                </select>
-              </label>
+              <>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Trip (Completed or Ongoing)
+                  <select
+                    value={selectedInvoiceTrip?.id || ''}
+                    onChange={(event) => {
+                      onInvoiceTripIdChange(event.target.value);
+                      onInvoiceAmountChange('');
+                    }}
+                    required
+                    className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium normal-case tracking-normal text-slate-700"
+                  >
+                    <option value="" disabled>Select a trip</option>
+                    {completedTripsForInvoice.map((trip) => (
+                      <option key={trip.id} value={trip.id}>{trip.origin} → {trip.destination} · {trip.client?.name ?? 'No client'} · {formatTsh(trip.budget_allocated)} ({trip.status})</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Client (optional)
+                  <select
+                    value={invoiceClientId}
+                    onChange={(event) => onInvoiceClientIdChange(event.target.value)}
+                    className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium normal-case tracking-normal text-slate-700"
+                  >
+                    <option value="">Use linked trip client, if any</option>
+                    {clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
+                  </select>
+                </label>
+              </>
             )}
             {invoiceType === 'driver' && (
               <>
@@ -423,11 +471,12 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
                 className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium normal-case tracking-normal text-slate-700"
               />
             </label>
-            {selectedInvoiceTrip && (
+            {invoiceType === 'trip' && selectedInvoiceTrip && (
               <div className="rounded-lg bg-slate-50 p-3 text-[11px] text-slate-600">
                 <p className="font-semibold text-slate-800">
                   {selectedInvoiceTrip.origin} → {selectedInvoiceTrip.destination}
                 </p>
+                <p className="mt-1">Client: {selectedInvoiceTrip.client?.name ?? 'No client assigned'}</p>
                 <p className="mt-1">Trip budget estimate: {formatTsh(selectedInvoiceTrip.budget_allocated)}. Enter the customer price; the estimate is not copied automatically.</p>
                 <button
                   type="button"

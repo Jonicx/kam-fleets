@@ -298,36 +298,36 @@ export const TrucksView: React.FC<TrucksViewProps> = ({
       </div>
 
       {/* Trucks Table */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-        <ul className="divide-y divide-slate-100 md:hidden">
+      <div className="md:overflow-hidden md:rounded-xl md:border md:border-slate-200 md:bg-white md:shadow-xs">
+        <ul className="space-y-3 md:hidden">
           {filteredTrucks.map((truck) => (
-            <li key={truck.id} className="p-4">
+            <li key={truck.id} className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="font-mono text-sm font-bold text-slate-900">{truck.license_plate}</p>
-                  <p className="truncate text-xs text-slate-500">{truck.model}{truck.year ? ` · ${truck.year}` : ''}</p>
+                  <p className="font-mono text-sm font-bold leading-5 text-slate-900">{truck.license_plate}</p>
+                  <p className="mt-0.5 line-clamp-2 text-xs leading-4 text-slate-500">{truck.model}{truck.year ? ` · ${truck.year}` : ''}</p>
                 </div>
                 <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
                   truck.status === 'Available' ? 'bg-emerald-100 text-emerald-800' : truck.status === 'On Trip' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'
                 }`}>{truck.status}</span>
               </div>
-              <dl className="mt-3 grid grid-cols-2 gap-3 text-xs">
-                <div><dt className="text-slate-500">Capacity</dt><dd className="font-semibold text-slate-800">{truck.capacity_tons ? `${truck.capacity_tons} Tons` : '-'}</dd></div>
-                <div><dt className="text-slate-500">Mileage</dt><dd className="font-mono text-slate-800">{(truck.current_mileage || 0).toLocaleString()} km</dd></div>
+              <dl className="mt-3 grid grid-cols-2 gap-2 rounded-lg bg-slate-50 px-3 py-2.5 text-xs">
+                <div className="min-w-0"><dt className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Capacity</dt><dd className="mt-0.5 font-semibold text-slate-800">{truck.capacity_tons ? `${truck.capacity_tons} Tons` : '—'}</dd></div>
+                <div className="min-w-0 border-l border-slate-200 pl-3"><dt className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Mileage</dt><dd className="mt-0.5 truncate font-mono font-semibold text-slate-800">{(truck.current_mileage || 0).toLocaleString()} km</dd></div>
               </dl>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap items-center gap-1.5">
                 {truck.status !== 'On Trip' && (
                   <button
                     type="button"
                     onClick={() => (truck.status === 'Maintenance' ? onUpdateTruckStatus(truck.id, 'Available') : openServiceModal(truck.id))}
-                    className="rounded-lg px-2.5 py-1.5 text-xs font-semibold transition bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    className="rounded-lg px-2.5 py-2 text-xs font-semibold transition bg-slate-100 text-slate-700 hover:bg-slate-200"
                   >
                     {truck.status === 'Maintenance' ? 'Finish Service' : 'Service Truck'}
                   </button>
                 )}
-                <button type="button" onClick={() => openServiceModal(truck.id, false)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold transition bg-slate-100 text-slate-700 hover:bg-slate-200">History</button>
-                <button type="button" onClick={() => openEditTruck(truck)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold transition bg-slate-100 text-slate-700 hover:bg-slate-200">Edit</button>
-                <button type="button" onClick={() => handleDelete(truck.id)} aria-label={`Delete ${truck.license_plate}`} className="ml-auto rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600">
+                <button type="button" onClick={() => openServiceModal(truck.id, false)} className="rounded-lg px-2.5 py-2 text-xs font-semibold transition bg-slate-100 text-slate-700 hover:bg-slate-200">History</button>
+                <button type="button" onClick={() => openEditTruck(truck)} className="rounded-lg px-2.5 py-2 text-xs font-semibold transition bg-slate-100 text-slate-700 hover:bg-slate-200">Edit</button>
+                <button type="button" onClick={() => handleDelete(truck.id)} aria-label={`Delete ${truck.license_plate}`} className="ml-auto rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>

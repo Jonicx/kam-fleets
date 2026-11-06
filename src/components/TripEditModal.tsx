@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { AlertCircle, Navigation2, X } from 'lucide-react';
-import { Driver, EnrichedTrip, Trip, Truck } from '../types/database.ts';
+import { Client, Driver, EnrichedTrip, Trip, Truck } from '../types/database.ts';
 import { toLocalDateTimeInput } from '../utils/dateInput.ts';
 
 type TripDetailUpdates = Partial<Pick<Trip,
-  'truck_id' | 'driver_id' | 'origin' | 'destination' | 'scheduled_start' | 'scheduled_end' | 'budget_allocated' | 'driver_pay' | 'cargo_type' | 'notes'>>;
+  'truck_id' | 'driver_id' | 'client_id' | 'origin' | 'destination' | 'scheduled_start' | 'scheduled_end' | 'budget_allocated' | 'driver_pay' | 'cargo_type' | 'notes'>>;
 
 interface TripEditModalProps {
   trip: EnrichedTrip;
   trucks: Truck[];
   drivers: Driver[];
+  clients: Client[];
   onSave: (tripId: string, updates: TripDetailUpdates) => void;
   onClose: () => void;
 }
@@ -18,10 +19,11 @@ const inputClass =
   'w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:ring-2 focus:ring-amber-500 focus:outline-none disabled:bg-slate-100 disabled:text-slate-500';
 const labelClass = 'text-[11px] font-semibold text-slate-700 block mb-1';
 
-export const TripEditModal: React.FC<TripEditModalProps> = ({ trip, trucks, drivers, onSave, onClose }) => {
+export const TripEditModal: React.FC<TripEditModalProps> = ({ trip, trucks, drivers, clients, onSave, onClose }) => {
   const canReassign = trip.status === 'Planned';
   const [truckId, setTruckId] = useState(trip.truck_id);
   const [driverId, setDriverId] = useState(trip.driver_id);
+  const [clientId, setClientId] = useState(trip.client_id || '');
   const [origin, setOrigin] = useState(trip.origin);
   const [destination, setDestination] = useState(trip.destination);
   const [scheduledStart, setScheduledStart] = useState(toLocalDateTimeInput(trip.scheduled_start));
@@ -47,6 +49,7 @@ export const TripEditModal: React.FC<TripEditModalProps> = ({ trip, trucks, driv
     try {
       onSave(trip.id, {
         ...(canReassign ? { truck_id: truckId, driver_id: driverId } : {}),
+        client_id: clientId || null,
         origin: origin.trim(),
         destination: destination.trim(),
         scheduled_start: new Date(scheduledStart).toISOString(),
@@ -104,6 +107,13 @@ export const TripEditModal: React.FC<TripEditModalProps> = ({ trip, trucks, driv
                 {driverOptions.map((driver) => (
                   <option key={driver.id} value={driver.id}>{driver.full_name} ({driver.status})</option>
                 ))}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label htmlFor="trip-client" className={labelClass}>Client (optional)</label>
+              <select id="trip-client" value={clientId} onChange={(e) => setClientId(e.target.value)} className={inputClass}>
+                <option value="">No client</option>
+                {clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
               </select>
             </div>
             {!canReassign && (

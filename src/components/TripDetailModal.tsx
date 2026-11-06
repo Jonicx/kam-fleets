@@ -951,6 +951,10 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
                 <span className="font-bold text-slate-900 block">Schedule &amp; Trip Notes</span>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
+                    <span className="text-slate-400 block text-[10px] uppercase">Client</span>
+                    <span className="font-medium text-slate-800">{trip.client?.name ?? 'No client assigned'}</span>
+                  </div>
+                  <div>
                     <span className="text-slate-400 block text-[10px] uppercase">Scheduled Departure</span>
                     <span className="font-medium text-slate-800">{new Date(trip.scheduled_start).toLocaleString()}</span>
                   </div>

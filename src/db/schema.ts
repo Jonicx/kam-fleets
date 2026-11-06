@@ -10,6 +10,7 @@ import {
   pgEnum,
   jsonb,
   index,
+  uniqueIndex,
   check,
 } from 'drizzle-orm/pg-core';
 
@@ -50,6 +51,20 @@ export const drivers = pgTable('drivers', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const clients = pgTable('clients', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: varchar('name', { length: 150 }).notNull(),
+  contactPerson: varchar('contact_person', { length: 150 }),
+  phone: varchar('phone', { length: 30 }),
+  email: varchar('email', { length: 254 }),
+  address: varchar('address', { length: 500 }),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('uq_clients_name').on(sql`lower(btrim(${table.name}))`),
+]);
+
 // ============================================================================
 // 4. TRIPS
 // ============================================================================
@@ -63,6 +78,7 @@ export const trips = pgTable(
     driverId: uuid('driver_id')
       .notNull()
       .references(() => drivers.id, { onDelete: 'restrict', onUpdate: 'cascade' }),
+    clientId: uuid('client_id').references(() => clients.id, { onDelete: 'restrict', onUpdate: 'cascade' }),
     status: tripStatusEnum('status').default('Planned').notNull(),
     origin: varchar('origin', { length: 255 }).notNull(),
     destination: varchar('destination', { length: 255 }).notNull(),
@@ -166,8 +182,8 @@ export const invoices = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     tripId: uuid('trip_id')
-      .notNull()
       .references(() => trips.id, { onDelete: 'restrict', onUpdate: 'cascade' }),
+    clientId: uuid('client_id').references(() => clients.id, { onDelete: 'restrict', onUpdate: 'cascade' }),
     invoiceNumber: varchar('invoice_number', { length: 80 }).notNull().unique(),
     amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
     issuedAt: timestamp('issued_at', { withTimezone: true }).notNull(),
@@ -239,6 +255,11 @@ export const driversRelations = relations(drivers, ({ many }) => ({
   trips: many(trips),
 }));
 
+export const clientsRelations = relations(clients, ({ many }) => ({
+  trips: many(trips),
+  invoices: many(invoices),
+}));
+
 export const tripsRelations = relations(trips, ({ one, many }) => ({
   truck: one(trucks, {
     fields: [trips.truckId],
@@ -247,6 +268,10 @@ export const tripsRelations = relations(trips, ({ one, many }) => ({
   driver: one(drivers, {
     fields: [trips.driverId],
     references: [drivers.id],
+  }),
+  client: one(clients, {
+    fields: [trips.clientId],
+    references: [clients.id],
   }),
   expenses: many(expenses),
   spareParts: many(spareParts),
@@ -258,6 +283,10 @@ export const invoicesRelations = relations(invoices, ({ one, many }) => ({
   trip: one(trips, {
     fields: [invoices.tripId],
     references: [trips.id],
+  }),
+  client: one(clients, {
+    fields: [invoices.clientId],
+    references: [clients.id],
   }),
   payments: many(payments),
 }));

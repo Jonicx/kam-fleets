@@ -82,7 +82,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-200/90">
+            <p className=" hidden sm:flex mt-1 max-w-2xl text-sm leading-relaxed text-slate-200/90">
               Realtime haulage management tracking trucks, drivers, ongoing trips, dynamic delay logs,
               transit expenses, and roadside spare parts & maintenance.
             </p>

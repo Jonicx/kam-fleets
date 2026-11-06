@@ -386,4 +386,58 @@ describe('ExpensesAndPartsView Component', () => {
 
     expect(screen.getAllByText('Fuel', { exact: true }).length).toBeGreaterThan(0);
   });
+
+  it('should show trip driver pay as a read-only Driver Payment ledger category', () => {
+    const trip: EnrichedTrip = {
+      id: 'driver-payment-trip',
+      truck_id: 'ledger-truck',
+      driver_id: 'ledger-driver',
+      status: 'Completed',
+      origin: 'Dar es Salaam',
+      destination: 'Arusha',
+      scheduled_start: new Date().toISOString(),
+      scheduled_end: new Date(Date.now() + 86400000).toISOString(),
+      budget_allocated: 2000,
+      driver_pay: 750,
+      delay_logs: [],
+      expenses: [],
+      spare_parts: [],
+      total_expenses: 0,
+      total_spare_parts: 0,
+      total_spent: 750,
+      remaining_budget: 1250,
+      budget_utilization_pct: 37.5,
+      is_over_budget: false,
+      profit_loss: 1250,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      driver: {
+        id: 'ledger-driver',
+        full_name: 'Ledger Driver',
+        license_number: 'LEDGER-1',
+        phone: '1234567890',
+        status: 'Available' as const,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    };
+    render(
+      <ExpensesAndPartsView
+        expenses={[]}
+        spareParts={[]}
+        trucks={[]}
+        truckServiceRecords={[]}
+        trips={[trip]}
+        onDeleteExpense={vi.fn()}
+        onDeleteSparePart={vi.fn()}
+        onSaveEntry={vi.fn()}
+        onUpdateTruckServiceRecord={vi.fn()}
+        onSelectTrip={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Driver Payments', { exact: true })).toBeInTheDocument();
+    expect(screen.getByText('Driver Payment · Ledger Driver', { exact: true })).toBeInTheDocument();
+    expect(screen.getByText('Trip cost', { exact: true })).toBeInTheDocument();
+  });
 });
