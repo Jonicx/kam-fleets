@@ -2,8 +2,6 @@
   <img src="./public/brand-logo-light.png" alt="KAM Fleets logo" width="220">
 </p>
 
-<h1 align="center">KAM Fleets</h1>
-
 <p align="center">
   A shared workspace for keeping a transport fleet, its trips, and trip costs organized.
 </p>
