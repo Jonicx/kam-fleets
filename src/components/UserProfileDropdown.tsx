@@ -38,9 +38,8 @@ export const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-center w-8 h-8 rounded-full hover:opacity-80 transition-opacity"
+        className={`flex items-center justify-center w-8 h-8 rounded-full ${profilePicture.color} hover:opacity-80 transition-opacity`}
         title="Profile"
-        style={{ backgroundColor: profilePicture.color }}
       >
         <span className="text-sm">{profilePicture.emoji}</span>
       </button>

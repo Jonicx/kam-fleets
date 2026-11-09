@@ -87,6 +87,29 @@ describe('Navbar', () => {
     expect(phoneNav).toHaveClass('overflow-x-auto');
   });
 
+  it('uses the selected profile picture background on the navbar avatar', () => {
+    render(
+      <Navbar
+        activeTab="admin"
+        setActiveTab={vi.fn()}
+        stats={stats}
+        onResetDb={vi.fn()}
+        onOpenNewTripModal={vi.fn()}
+        profilePictureId="avatar-3"
+        onSignOut={vi.fn()}
+        onOpenProfile={vi.fn()}
+      />,
+    );
+
+    const profileButton = screen.getByTitle('Profile');
+    expect(profileButton).toHaveClass('bg-emerald-500');
+
+    fireEvent.click(profileButton);
+    const profilePictureEmojis = screen.getAllByText('🌿');
+    expect(profilePictureEmojis).toHaveLength(2);
+    expect(profilePictureEmojis[1]).toHaveClass('bg-emerald-500');
+  });
+
   it('offers separated destination buttons and swaps a selected destination with Expenses', () => {
     const setActiveTab = vi.fn();
     const { getAllByRole } = render(
