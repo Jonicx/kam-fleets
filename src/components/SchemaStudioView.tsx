@@ -68,8 +68,8 @@ export const SchemaStudioView: React.FC = () => {
               KAM Fleets Relational Schema, Models &amp; Indexes
             </h1>
             <p className="text-xs text-slate-300 mt-1 max-w-2xl">
-              Production-ready PostgreSQL database definitions with referential integrity constraints,
-              composite foreign key indexes, dynamic delay logs, and Drizzle ORM models.
+              A developer reference for database concepts. The numbered SQL migrations are the source of truth
+              for the current production schema.
             </p>
           </div>
 
@@ -79,7 +79,7 @@ export const SchemaStudioView: React.FC = () => {
               className="flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition"
             >
               {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
-              <span>{copied ? 'Copied SQL' : 'Copy DDL'}</span>
+              <span>{copied ? 'Copied sample SQL' : 'Copy sample DDL'}</span>
             </button>
 
             <button
@@ -87,19 +87,24 @@ export const SchemaStudioView: React.FC = () => {
               className="flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition shadow-xs"
             >
               <Download className="h-4 w-4" />
-              <span>Download .sql</span>
+              <span>Download sample .sql</span>
             </button>
           </div>
+        </div>
+
+        <div role="note" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
+          This studio contains reference examples, not the live schema definition. Some diagrams and code samples may be
+          outdated. Use the numbered SQL migrations as the source of truth before making database changes.
         </div>
 
         {/* Studio Sub-Navigation */}
         <div className="flex border-t border-slate-800 mt-6 pt-3 space-x-2 overflow-x-auto scrollbar-none">
           {[
-            { id: 'erd', label: 'Interactive ER Diagram', icon: Layers },
+            { id: 'erd', label: 'Schema Relationship Overview', icon: Layers },
             { id: 'indexes', label: 'Index Optimization Matrix', icon: Zap },
             { id: 'sql', label: 'PostgreSQL DDL Scripts', icon: FileCode },
             { id: 'orm', label: 'Drizzle ORM & Models', icon: Code2 },
-            { id: 'query', label: 'Live SQL Query Sandbox', icon: Play },
+            { id: 'query', label: 'Local Query Preview', icon: Play },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -578,16 +583,20 @@ export const SchemaStudioView: React.FC = () => {
       {/* TAB 5: LIVE SQL QUERY SANDBOX */}
       {activeTab === 'query' && (
         <div className="space-y-4">
+          <div role="note" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
+            This is a local preview using saved browser data. It does not execute SQL against Neon; the query text selects a
+            limited in-app preview. Check the numbered migrations before relying on schema examples.
+          </div>
           <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Interactive Query Runner</h3>
                 <p className="text-xs text-slate-500">
-                  Execute relational queries against the active KAM Fleets database tables
+                  Preview a few query patterns against locally saved fleet data
                 </p>
               </div>
               <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                Live Data Connected
+                Local preview
               </span>
             </div>
 
@@ -653,7 +662,7 @@ export const SchemaStudioView: React.FC = () => {
                   Returned <strong>{queryResult.rowCount} rows</strong>
                 </span>
                 <span className="text-[11px] text-slate-400 font-mono">
-                  Query time: {queryResult.executionTimeMs}ms (Indexed Scan)
+                  Local preview time: {queryResult.executionTimeMs}ms
                 </span>
               </div>
               <div className="overflow-x-auto max-h-96">

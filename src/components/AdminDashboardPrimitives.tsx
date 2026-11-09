@@ -39,7 +39,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
       aria-label={isFlipped ? `Show value for ${label}` : `Show explanation for ${label}`}
       aria-pressed={isFlipped}
       onClick={() => setIsFlipped((flipped) => !flipped)}
-      className="h-[136px] w-full min-w-0 rounded-xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 sm:h-[144px]"
+      className="h-[112px] w-full min-w-0 rounded-xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 sm:h-[144px]"
     >
       <span
         className="relative block h-full w-full rounded-xl [perspective:800px]"
@@ -49,7 +49,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
           className="absolute inset-0 block rounded-xl transition-transform duration-500 [transform-style:preserve-3d] motion-reduce:transition-none"
           style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
         >
-          <span className="absolute inset-0 flex flex-col justify-between rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-sm [backface-visibility:hidden] sm:p-4">
+          <span className="absolute inset-0 flex flex-col justify-between rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm [backface-visibility:hidden] max-sm:justify-start max-sm:gap-1.5 sm:p-4">
             <span className="flex items-start justify-between gap-2">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:text-xs">
                 {label}
@@ -66,7 +66,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
             </span>
           </span>
           <span
-            className="absolute inset-0 flex flex-col justify-center rounded-xl border border-slate-200/80 bg-slate-50 p-3.5 shadow-sm [backface-visibility:hidden] sm:p-4"
+            className="absolute inset-0 flex flex-col justify-center rounded-xl border border-slate-200/80 bg-slate-50 p-3 shadow-sm [backface-visibility:hidden] sm:p-4"
             style={{ transform: 'rotateY(180deg)' }}
           >
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:text-xs">

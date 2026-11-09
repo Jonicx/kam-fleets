@@ -103,8 +103,6 @@ export const ADMIN_ONLY_COMMANDS: ReadonlySet<CommandName> = new Set<CommandName
   'reversePayment',
   'deleteTruck',
   'deleteDriver',
-  'createClient',
-  'updateClient',
   'deleteClient',
   'deleteTrip',
 ]);
@@ -340,6 +338,7 @@ export class FleetDomain {
     const client: Client = {
       id: this.newId(),
       name,
+      tin_number: optionalText(data.tin_number, 'TIN number', 50) || undefined,
       contact_person: optionalText(data.contact_person, 'Contact person', 150) || undefined,
       phone: optionalText(data.phone, 'Client phone', 30) || undefined,
       email: email?.toLocaleLowerCase(),
@@ -367,6 +366,7 @@ export class FleetDomain {
       ...previous,
       ...updates,
       name,
+      tin_number: updates.tin_number === undefined ? previous.tin_number : optionalText(updates.tin_number, 'TIN number', 50) || undefined,
       contact_person: updates.contact_person === undefined ? previous.contact_person : optionalText(updates.contact_person, 'Contact person', 150) || undefined,
       phone: updates.phone === undefined ? previous.phone : optionalText(updates.phone, 'Client phone', 30) || undefined,
       email: email?.toLocaleLowerCase(),
@@ -647,6 +647,10 @@ export class FleetDomain {
     const previous = this.trucks[index];
     const fields = this.readTruckFields(updates, true);
     const hasOngoingTrip = this.trips.some((trip) => trip.truck_id === id && trip.status === 'Ongoing');
+
+    if (fields.current_mileage !== undefined && fields.current_mileage < Number(previous.current_mileage ?? 0)) {
+      throw new Error(`Truck mileage cannot be reduced below its current reading of ${Number(previous.current_mileage ?? 0).toLocaleString()} km.`);
+    }
 
     if (fields.status !== undefined && fields.status !== previous.status) {
       if (fields.status === 'On Trip') {
@@ -929,6 +933,15 @@ export class FleetDomain {
         `Double-Booking Prevention: Driver '${driver.full_name}' is currently '${driver.status}' and cannot be dispatched.`
       );
     }
+    const startMileage = optionalInteger(
+      payload.start_mileage,
+      'Starting odometer reading',
+      0,
+      100_000_000,
+    ) ?? Number(truck.current_mileage ?? 0);
+    if (startMileage < Number(truck.current_mileage ?? 0)) {
+      throw new Error(`Starting odometer reading cannot be less than the truck's current reading of ${Number(truck.current_mileage ?? 0).toLocaleString()} km.`);
+    }
 
     // 4. Validate initial expenses if provided
     if (payload.initial_expenses && payload.initial_expenses.length > 0) {
@@ -974,6 +987,7 @@ export class FleetDomain {
       scheduled_end: new Date(payload.scheduled_end).toISOString(),
       budget_allocated: budgetNum,
       driver_pay: driverPayNum,
+      start_mileage: startMileage,
       cargo_type: payload.cargo_type?.trim() || 'General Cargo',
       notes: payload.notes?.trim() || '',
       delay_logs: [],
@@ -982,6 +996,7 @@ export class FleetDomain {
     };
 
     this.trips.unshift(newTrip);
+    this.updateTruck(truck.id, { current_mileage: startMileage });
 
     // 7. Insert initial expenses (if any)
     if (payload.initial_expenses && payload.initial_expenses.length > 0) {
@@ -1028,8 +1043,8 @@ export class FleetDomain {
     return newTrip;
   }
 
-  public completeTrip(id: string): Trip {
-    return this.updateTrip(id, { status: 'Completed' });
+  public completeTrip(id: string, endMileage: number): Trip {
+    return this.updateTrip(id, { status: 'Completed', end_mileage: endMileage });
   }
 
   public updateTrip(id: string, updates: Partial<Omit<Trip, 'id' | 'created_at'>>): Trip {
@@ -1079,6 +1094,23 @@ export class FleetDomain {
         this.updateTruckStatusInternal(effectiveTruckId, 'On Trip');
         this.updateDriverStatusInternal(effectiveDriverId, 'On Trip');
       } else if (newStatus === 'Completed') {
+        if (oldTrip.status !== 'Ongoing') {
+          throw new Error('Only an ongoing trip can be completed. Start the trip first.');
+        }
+        const endMileage = optionalInteger(updates.end_mileage, 'Final odometer reading', 0, 100_000_000);
+        const truck = this.trucks.find((item) => item.id === effectiveTruckId);
+        const minimumMileage = Math.max(
+          Number(oldTrip.start_mileage ?? 0),
+          Number(truck?.current_mileage ?? 0),
+        );
+        if (endMileage === undefined) {
+          throw new Error('A final odometer reading is required to complete the trip.');
+        }
+        if (endMileage < minimumMileage) {
+          throw new Error(`Final odometer reading cannot be less than the trip's starting reading of ${minimumMileage.toLocaleString()} km.`);
+        }
+        updates.end_mileage = endMileage;
+        this.updateTruck(effectiveTruckId, { current_mileage: endMileage });
         // 1. Revert the assigned Truck and Driver statuses back to 'Available'
         this.updateTruckStatusInternal(effectiveTruckId, 'Available');
         this.updateDriverStatusInternal(effectiveDriverId, 'Available');
@@ -1451,6 +1483,7 @@ export class FleetDomain {
       'scheduled_end',
       'budget_allocated',
       'driver_pay',
+      'end_mileage',
       'cargo_type',
       'notes',
     ] as const;
@@ -1470,6 +1503,10 @@ export class FleetDomain {
     if (end < start) throw new Error('Scheduled End Date cannot be earlier than Scheduled Start Date.');
     if (next.budget_allocated !== undefined) next.budget_allocated = requireWholeAmount(next.budget_allocated, 'Budget Allocated');
     if (next.driver_pay !== undefined) next.driver_pay = requireWholeAmount(next.driver_pay, 'Driver Pay', { allowZero: true });
+    if (next.end_mileage !== undefined) {
+      next.end_mileage = optionalInteger(next.end_mileage, 'Final odometer reading', 0, 100_000_000);
+      if (next.status !== 'Completed') throw new Error('Final odometer reading can only be saved when completing a trip.');
+    }
 
     const truckChanged = next.truck_id !== undefined && next.truck_id !== oldTrip.truck_id;
     const driverChanged = next.driver_id !== undefined && next.driver_id !== oldTrip.driver_id;

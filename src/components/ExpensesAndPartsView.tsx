@@ -756,7 +756,7 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
 
       {selectedService && selectedServiceTruck && (
         <div
-          className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
+          className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-start justify-center p-3 sm:items-start sm:p-4"
           role="presentation"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) setSelectedServiceId(null);

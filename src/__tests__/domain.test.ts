@@ -1,6 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { FleetDomain } from '../db/domain';
+import { canRunCommand, FleetDomain } from '../db/domain';
 import type { Truck, Driver, Trip, Expense, SparePart, Invoice, Payment } from '../types/database';
+
+describe('role command permissions', () => {
+  it('allows dispatchers to create and update clients but not delete them', () => {
+    expect(canRunCommand('Dispatcher', 'createClient')).toBe(true);
+    expect(canRunCommand('Dispatcher', 'updateClient')).toBe(true);
+    expect(canRunCommand('Dispatcher', 'deleteClient')).toBe(false);
+  });
+});
 
 describe('FleetDomain - Truck Management', () => {
   let domain: FleetDomain;
@@ -228,12 +236,16 @@ describe('FleetDomain - Client Management', () => {
   });
 
   it('creates, sorts, and updates clients', () => {
-    const zulu = domain.createClient({ name: 'Zulu Logistics', email: 'OPS@ZULU.EXAMPLE' });
+    const zulu = domain.createClient({ name: 'Zulu Logistics', email: 'OPS@ZULU.EXAMPLE', tin_number: '  123456789  ' });
     const alpha = domain.createClient({ name: 'Alpha Freight' });
 
     expect(domain.getClients().map((client) => client.name)).toEqual(['Alpha Freight', 'Zulu Logistics']);
     expect(zulu.email).toBe('ops@zulu.example');
-    expect(domain.updateClient(alpha.id, { phone: '+255123456' }).phone).toBe('+255123456');
+    expect(zulu.tin_number).toBe('123456789');
+    expect(domain.updateClient(alpha.id, { phone: '+255123456', tin_number: '987654321' })).toMatchObject({
+      phone: '+255123456',
+      tin_number: '987654321',
+    });
   });
 
   it('prevents deleting clients referenced by trips or invoices', () => {
@@ -294,7 +306,7 @@ describe('FleetDomain - Client Management', () => {
       driver_pay: 100,
     });
     domain.updateTrip(trip.id, { status: 'Ongoing' });
-    domain.completeTrip(trip.id);
+    domain.completeTrip(trip.id, 0);
 
     const invoice = domain.createInvoice({
       trip_id: trip.id,
@@ -321,7 +333,7 @@ describe('FleetDomain - Client Management', () => {
       driver_pay: 100,
     });
     domain.updateTrip(trip.id, { status: 'Ongoing' });
-    domain.completeTrip(trip.id);
+    domain.completeTrip(trip.id, 0);
 
     const invoice = domain.createInvoice({
       trip_id: trip.id,
@@ -509,7 +521,7 @@ describe('FleetDomain - Trip Management', () => {
       expect(domain.getTruck(truck.id)?.status).toBe('On Trip');
       expect(domain.getDriver(driver.id)?.status).toBe('On Trip');
 
-      domain.completeTrip(trip.id);
+      domain.completeTrip(trip.id, 0);
 
       const updatedTrip = domain.getTrips().find((item) => item.id === trip.id);
       expect(updatedTrip?.status).toBe('Completed');
@@ -517,9 +529,63 @@ describe('FleetDomain - Trip Management', () => {
 
       const updatedTruck = domain.getTruck(truck.id);
       expect(updatedTruck?.status).toBe('Available');
+      expect(updatedTruck?.current_mileage).toBe(0);
 
       const updatedDriver = domain.getDriver(driver.id);
       expect(updatedDriver?.status).toBe('Available');
+    });
+
+    it('records starting and final odometer readings and updates the truck mileage', () => {
+      const truck = domain.createTruck({
+        license_plate: 'MILE 123',
+        model: 'Mileage Truck',
+        status: 'Available',
+        current_mileage: 400,
+      });
+      const driver = domain.createDriver({
+        full_name: 'Mileage Driver',
+        license_number: 'MILE-LIC',
+        phone: '1234567890',
+        status: 'Available',
+      });
+      const trip = domain.createTrip({
+        truck_id: truck.id,
+        driver_id: driver.id,
+        origin: 'A',
+        destination: 'B',
+        scheduled_start: new Date().toISOString(),
+        scheduled_end: new Date(Date.now() + 86400000).toISOString(),
+        budget_allocated: 1000,
+        driver_pay: 0,
+        start_mileage: 450,
+      });
+
+      expect(trip.start_mileage).toBe(450);
+      expect(domain.getTruck(truck.id)?.current_mileage).toBe(450);
+      domain.updateTrip(trip.id, { status: 'Ongoing' });
+      expect(() => domain.updateTrip(trip.id, { status: 'Completed', end_mileage: 449 })).toThrow('Final odometer reading');
+      const completed = domain.completeTrip(trip.id, 620);
+
+      expect(completed.end_mileage).toBe(620);
+      expect(domain.getTruck(truck.id)?.current_mileage).toBe(620);
+    });
+
+    it('does not allow a planned trip to be completed without starting it', () => {
+      const truck = domain.createTruck({ license_plate: 'PLAN 123', model: 'Planned Truck', status: 'Available' });
+      const driver = domain.createDriver({ full_name: 'Planned Driver', license_number: 'PLAN-LIC', phone: '1234567890', status: 'Available' });
+      const trip = domain.createTrip({
+        truck_id: truck.id,
+        driver_id: driver.id,
+        origin: 'A',
+        destination: 'B',
+        scheduled_start: new Date().toISOString(),
+        scheduled_end: new Date(Date.now() + 86400000).toISOString(),
+        budget_allocated: 1000,
+        driver_pay: 0,
+      });
+
+      expect(() => domain.updateTrip(trip.id, { status: 'Completed', end_mileage: 1 })).toThrow('Only an ongoing trip can be completed');
+      expect(domain.getTrips().find((item) => item.id === trip.id)?.status).toBe('Planned');
     });
   });
 });
@@ -631,7 +697,7 @@ describe('FleetDomain - Invoice and Payment Management', () => {
     });
 
     domain.updateTrip(trip.id, { status: 'Ongoing' });
-    domain.completeTrip(trip.id);
+    domain.completeTrip(trip.id, 0);
     tripId = trip.id;
   });
 

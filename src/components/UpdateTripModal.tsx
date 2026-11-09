@@ -34,7 +34,7 @@ import { getDelaySeverityClasses } from '../utils/delaySeverity.ts';
 interface UpdateTripModalProps {
   trip: EnrichedTrip;
   onClose: () => void;
-  onUpdateStatus: (tripId: string, status: TripStatus) => void;
+  onUpdateStatus: (tripId: string, status: TripStatus, endMileage?: number) => void;
   onAddDelayLog: (
     tripId: string,
     log: {
@@ -87,6 +87,12 @@ export const UpdateTripModal: React.FC<UpdateTripModalProps> = ({
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
+  const [completionMileage, setCompletionMileage] = useState('');
+  const [completionMileageError, setCompletionMileageError] = useState('');
+  const minimumMileage = Math.max(
+    Number(trip.start_mileage ?? 0),
+    Number(trip.truck?.current_mileage ?? 0),
+  );
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -329,7 +335,7 @@ export const UpdateTripModal: React.FC<UpdateTripModalProps> = ({
   );
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex items-start justify-center p-3 sm:items-start sm:p-4">
       <div className="modal-readable bg-white w-full max-w-5xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
         {/* Top Header */}
         <div className="bg-slate-900 text-white p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800">
@@ -408,12 +414,40 @@ export const UpdateTripModal: React.FC<UpdateTripModalProps> = ({
                   <strong>{trip.truck?.license_plate}</strong> and Driver <strong>{trip.driver?.full_name}</strong> back to{' '}
                   <span className="text-emerald-700 font-semibold">Available</span> in the database.
                 </p>
+                <label className="block pt-2 text-[11px] font-semibold text-slate-700">
+                  Final odometer reading (km) *
+                  <input
+                    type="number"
+                    required
+                    min={minimumMileage}
+                    step="1"
+                    inputMode="numeric"
+                    value={completionMileage}
+                    onChange={(event) => {
+                      setCompletionMileage(event.target.value);
+                      setCompletionMileageError('');
+                    }}
+                    aria-label="Final odometer reading in kilometers"
+                    className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs"
+                  />
+                  <span className="mt-1 block font-normal text-slate-500">Trip started at {minimumMileage.toLocaleString()} km.</span>
+                  {completionMileageError && <span role="alert" className="mt-1 block font-semibold text-rose-700">{completionMileageError}</span>}
+                </label>
                 <div className="flex items-center space-x-2 pt-2">
                   <button
                     onClick={() => {
-                      onUpdateStatus(trip.id, 'Completed');
-                      setShowCompleteConfirm(false);
-                      onClose();
+                      const finalMileage = Number(completionMileage);
+                      if (!completionMileage.trim() || !Number.isInteger(finalMileage) || finalMileage < minimumMileage) {
+                        setCompletionMileageError(`Enter a whole-number odometer reading of at least ${minimumMileage.toLocaleString()} km.`);
+                        return;
+                      }
+                      try {
+                        onUpdateStatus(trip.id, 'Completed', finalMileage);
+                        setShowCompleteConfirm(false);
+                        onClose();
+                      } catch (error) {
+                        setCompletionMileageError(error instanceof Error ? error.message : 'The trip could not be completed.');
+                      }
                     }}
                     className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm"
                   >
@@ -1244,12 +1278,35 @@ export const UpdateTripModal: React.FC<UpdateTripModalProps> = ({
           </div>
 
           <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setShowCompleteConfirm(true)}
-              className="px-4 py-2 rounded-lg text-[11px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition"
-            >
-              Complete Trip
-            </button>
+            {trip.status === 'Planned' && (
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    onUpdateStatus(trip.id, 'Ongoing');
+                    onClose();
+                  } catch (error) {
+                    setFormError(error instanceof Error ? error.message : 'The trip could not be started.');
+                  }
+                }}
+                className="px-4 py-2 rounded-lg text-[11px] font-bold bg-blue-600 hover:bg-blue-500 text-white transition"
+              >
+                Start Trip
+              </button>
+            )}
+            {trip.status === 'Ongoing' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCompletionMileage('');
+                  setCompletionMileageError('');
+                  setShowCompleteConfirm(true);
+                }}
+                className="px-4 py-2 rounded-lg text-[11px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition"
+              >
+                Complete Trip
+              </button>
+            )}
             <button
               onClick={onClose}
               className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"

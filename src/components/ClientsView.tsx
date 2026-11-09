@@ -9,10 +9,12 @@ interface ClientsViewProps {
   onCreateClient: (data: ClientInput) => void;
   onUpdateClient: (id: string, updates: Partial<ClientInput>) => void;
   onDeleteClient: (id: string) => void;
+  canDeleteClients: boolean;
 }
 
 const emptyClient: ClientInput = {
   name: '',
+  tin_number: '',
   contact_person: '',
   phone: '',
   email: '',
@@ -22,7 +24,7 @@ const emptyClient: ClientInput = {
 
 const inputClass = 'w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100';
 
-export const ClientsView: React.FC<ClientsViewProps> = ({ clients, onCreateClient, onUpdateClient, onDeleteClient }) => {
+export const ClientsView: React.FC<ClientsViewProps> = ({ clients, onCreateClient, onUpdateClient, onDeleteClient, canDeleteClients }) => {
   const [search, setSearch] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ClientInput>(emptyClient);
@@ -33,7 +35,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ clients, onCreateClien
   const filteredClients = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
     return clients
-      .filter((client) => !query || [client.name, client.contact_person, client.phone, client.email, client.address]
+      .filter((client) => !query || [client.name, client.tin_number, client.contact_person, client.phone, client.email, client.address]
         .some((value) => value?.toLocaleLowerCase().includes(query)))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [clients, search]);
@@ -42,6 +44,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ clients, onCreateClien
     setEditingId(client.id);
     setForm({
       name: client.name,
+      tin_number: client.tin_number ?? '',
       contact_person: client.contact_person ?? '',
       phone: client.phone ?? '',
       email: client.email ?? '',
@@ -93,14 +96,17 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ clients, onCreateClien
                 <div className="min-w-0">
                   <h2 className="truncate text-sm font-bold text-slate-900">{client.name}</h2>
                   {client.contact_person && <p className="mt-1 truncate text-xs text-slate-500">{client.contact_person}</p>}
+                  {client.tin_number && <p className="mt-2 text-xs text-slate-600"><span className="font-semibold">TIN:</span> {client.tin_number}</p>}
                 </div>
                 <div className="flex shrink-0 gap-1">
                   <button type="button" aria-label={`Edit ${client.name}`} onClick={() => beginEdit(client)} className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900">
                     <Pencil className="h-4 w-4" />
                   </button>
-                  <button type="button" aria-label={`Delete ${client.name}`} onClick={() => { setDeleteCandidate(client); setDeleteError(''); }} className="rounded-md p-1.5 text-rose-600 hover:bg-rose-50">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  {canDeleteClients && (
+                    <button type="button" aria-label={`Delete ${client.name}`} onClick={() => { setDeleteCandidate(client); setDeleteError(''); }} className="rounded-md p-1.5 text-rose-600 hover:bg-rose-50">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               </div>
               {client.phone && <p className="mt-3 flex items-center gap-2 text-xs text-slate-600"><Phone className="h-3.5 w-3.5 shrink-0" />{client.phone}</p>}
@@ -126,6 +132,9 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ clients, onCreateClien
           <label className="block text-xs font-semibold text-slate-600">Client / company name *
             <input required maxLength={150} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className={`${inputClass} mt-1`} />
           </label>
+          <label className="block text-xs font-semibold text-slate-600">TIN number <span className="font-normal text-slate-400">(optional)</span>
+            <input maxLength={50} value={form.tin_number} onChange={(event) => setForm({ ...form, tin_number: event.target.value })} className={`${inputClass} mt-1`} />
+          </label>
           <label className="block text-xs font-semibold text-slate-600">Contact person
             <input maxLength={150} value={form.contact_person} onChange={(event) => setForm({ ...form, contact_person: event.target.value })} className={`${inputClass} mt-1`} />
           </label>
@@ -149,9 +158,9 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ clients, onCreateClien
         </form>
       </div>
 
-      {deleteCandidate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-          <div role="dialog" aria-modal="true" aria-labelledby="delete-client-title" className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl">
+      {canDeleteClients && deleteCandidate && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4">
+          <div role="dialog" aria-modal="true" aria-labelledby="delete-client-title" className="my-auto w-full max-w-sm rounded-xl bg-white p-5 shadow-xl">
             <h2 id="delete-client-title" className="text-sm font-bold text-slate-900">Delete {deleteCandidate.name}?</h2>
             <p className="mt-2 text-xs leading-relaxed text-slate-600">Clients linked to trips or invoices cannot be deleted.</p>
             {deleteError && <p role="alert" className="mt-3 text-xs font-semibold text-rose-700">{deleteError}</p>}

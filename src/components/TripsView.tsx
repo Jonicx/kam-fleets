@@ -25,7 +25,7 @@ interface TripsViewProps {
   onSelectTrip: (tripId: string) => void;
   onOpenUpdateModal?: (tripId: string) => void;
   onOpenNewTripModal: () => void;
-  onUpdateTripStatus: (tripId: string, status: TripStatus) => void;
+  onUpdateTripStatus: (tripId: string, status: TripStatus, endMileage?: number) => void;
   onDeleteTrip: (tripId: string) => void;
   onEditTrip?: (tripId: string) => void;
 }
@@ -45,6 +45,13 @@ export const TripsView: React.FC<TripsViewProps> = ({
   const [clientFilter, setClientFilter] = useState('All');
   const [tripToDelete, setTripToDelete] = useState<EnrichedTrip | null>(null);
   const [tripToComplete, setTripToComplete] = useState<EnrichedTrip | null>(null);
+  const [completionMileage, setCompletionMileage] = useState('');
+  const [completionMileageError, setCompletionMileageError] = useState('');
+  const openCompletionModal = (trip: EnrichedTrip) => {
+    setTripToComplete(trip);
+    setCompletionMileage('');
+    setCompletionMileageError('');
+  };
 
   const filteredTrips = trips.filter((trip) => {
     const matchesStatus = statusFilter === 'All' || trip.status === statusFilter;
@@ -205,7 +212,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
                     <button type="button" onClick={() => (onOpenUpdateModal ? onOpenUpdateModal(trip.id) : onSelectTrip(trip.id))} className="rounded-lg px-2.5 py-2 text-xs font-semibold transition bg-blue-600 text-white hover:bg-blue-500">Update trip</button>
                   )}
                   {trip.status === 'Ongoing' && (
-                    <button type="button" onClick={() => setTripToComplete(trip)} className="rounded-lg px-2.5 py-2 text-xs font-semibold transition bg-emerald-600 text-white hover:bg-emerald-500">Complete</button>
+                    <button type="button" onClick={() => openCompletionModal(trip)} className="rounded-lg px-2.5 py-2 text-xs font-semibold transition bg-emerald-600 text-white hover:bg-emerald-500">Complete</button>
                   )}
                   {trip.status !== 'Completed' && onEditTrip && (
                     <button type="button" onClick={() => onEditTrip(trip.id)} className="rounded-lg px-2.5 py-2 text-xs font-semibold transition bg-slate-100 text-slate-700 hover:bg-slate-200">Edit</button>
@@ -392,7 +399,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
 
                           {trip.status === 'Ongoing' && (
                             <button
-                              onClick={() => setTripToComplete(trip)}
+                              onClick={() => openCompletionModal(trip)}
                               title="Complete trip (revert fleet assets and calculate budget variance)"
                               className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition flex items-center space-x-1 shadow-xs"
                             >
@@ -447,9 +454,13 @@ export const TripsView: React.FC<TripsViewProps> = ({
         const budget = Number(tripToComplete.budget_allocated) || 0;
         const profitLoss = budget - (driverPay + totalExp + totalSpares);
         const isProfitable = profitLoss >= 0;
+        const minimumMileage = Math.max(
+          Number(tripToComplete.start_mileage ?? 0),
+          Number(tripToComplete.truck?.current_mileage ?? 0),
+        );
 
         return (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-start justify-center p-3 sm:items-start sm:p-4">
             <div className="modal-readable bg-white rounded-2xl p-6 max-w-lg w-full border border-slate-200 shadow-2xl space-y-4">
               <div className="flex items-center space-x-3 text-emerald-600">
                 <div className="p-2 bg-emerald-50 rounded-xl">
@@ -460,6 +471,28 @@ export const TripsView: React.FC<TripsViewProps> = ({
                   <p className="text-xs text-slate-500">Finalize recorded trip costs and release the assigned fleet assets.</p>
                 </div>
               </div>
+
+              <label className="block text-xs font-semibold text-slate-700">
+                Final odometer reading (km) *
+                <input
+                  type="number"
+                  required
+                  min={minimumMileage}
+                  step="1"
+                  inputMode="numeric"
+                  value={completionMileage}
+                  onChange={(event) => {
+                    setCompletionMileage(event.target.value);
+                    setCompletionMileageError('');
+                  }}
+                  aria-label="Final odometer reading in kilometers"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                />
+                <span className="mt-1 block font-normal text-slate-500">
+                  Trip started at {minimumMileage.toLocaleString()} km.
+                </span>
+                {completionMileageError && <span role="alert" className="mt-1 block font-semibold text-rose-700">{completionMileageError}</span>}
+              </label>
 
               {/* Route Summary */}
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-1">
@@ -555,8 +588,17 @@ export const TripsView: React.FC<TripsViewProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    onUpdateTripStatus(tripToComplete.id, 'Completed');
-                    setTripToComplete(null);
+                    const finalMileage = Number(completionMileage);
+                    if (!completionMileage.trim() || !Number.isInteger(finalMileage) || finalMileage < minimumMileage) {
+                      setCompletionMileageError(`Enter a whole-number odometer reading of at least ${minimumMileage.toLocaleString()} km.`);
+                      return;
+                    }
+                    try {
+                      onUpdateTripStatus(tripToComplete.id, 'Completed', finalMileage);
+                      setTripToComplete(null);
+                    } catch (error) {
+                      setCompletionMileageError(error instanceof Error ? error.message : 'The trip could not be completed.');
+                    }
                   }}
                   className="px-4 py-2 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm"
                 >
@@ -570,7 +612,7 @@ export const TripsView: React.FC<TripsViewProps> = ({
 
       {/* Delete Confirmation Modal */}
       {tripToDelete && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-start justify-center p-3 sm:items-start sm:p-4">
           <div className="modal-readable bg-white rounded-2xl p-6 max-w-md w-full border border-slate-200 shadow-2xl space-y-4">
             <div className="flex items-center space-x-3 text-rose-600">
               <div className="p-2 bg-rose-50 rounded-xl">

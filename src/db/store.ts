@@ -278,6 +278,32 @@ class DatabaseStore extends FleetDomain {
     this.syncStatus = 'local';
   }
 
+  public clearLocalData(userId: string) {
+    if (!userId) throw new Error('A user ID is required to clear the local workspace cache.');
+    const suffix = `team_${encodeURIComponent(userId)}_`;
+    const prefixes = [
+      `${STORAGE_KEY_PREFIX}${suffix}`,
+      `${LEGACY_STORAGE_KEY_PREFIX}${suffix}`,
+    ];
+
+    this.disconnectRemote();
+    this.storageKeySuffix = suffix;
+    try {
+      for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+        const key = localStorage.key(index);
+        if (key && prefixes.some((prefix) => key.startsWith(prefix))) localStorage.removeItem(key);
+      }
+    } catch (error) {
+      console.error('Failed to clear the expired or revoked workspace cache.', error);
+      throw new Error('The saved workspace data could not be cleared from this browser.');
+    }
+
+    this.pendingCommands = [];
+    this.remoteVersion = 0;
+    this.loadFromStorage();
+    this.notify();
+  }
+
   public subscribe(callback: () => void) {
     this.listeners.add(callback);
     return () => this.listeners.delete(callback);

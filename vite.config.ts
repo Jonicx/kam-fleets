@@ -1,11 +1,52 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
+import {defineConfig, loadEnv} from 'vite';
 
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  const backendOrigins = [
+    env.VITE_NEON_AUTH_URL,
+    env.VITE_NEON_FUNCTION_HELLO_BASE_URL,
+  ].filter(Boolean).map((value) => {
+    try {
+      return new URL(value).origin;
+    } catch {
+      throw new Error('Neon endpoint URLs must be valid absolute URLs to build the production CSP.');
+    }
+  });
+
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      {
+        name: 'production-content-security-policy',
+        apply: 'build',
+        transformIndexHtml(html) {
+          const csp = [
+            "default-src 'self'",
+            "base-uri 'self'",
+            "object-src 'none'",
+            "script-src 'self'",
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+            "style-src-attr 'unsafe-inline'",
+            "font-src 'self' https://fonts.gstatic.com data:",
+            `connect-src 'self' ${backendOrigins.join(' ')}`,
+            "img-src 'self' data: blob:",
+            "manifest-src 'self'",
+            "worker-src 'self'",
+            "frame-src 'none'",
+            "form-action 'self'",
+            'upgrade-insecure-requests',
+          ].join('; ');
+          return html.replace(
+            '<head>',
+            `<head>\n    <meta http-equiv="Content-Security-Policy" content="${csp}">`,
+          );
+        },
+      },
+    ],
     // Change to '/' if you move the frontend to Vercel (see PHASE1_NOTES.md).
     base: process.env.VITE_BASE_PATH ?? '/kam-fleets/',
     resolve: {

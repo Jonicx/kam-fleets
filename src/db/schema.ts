@@ -54,6 +54,7 @@ export const drivers = pgTable('drivers', {
 export const clients = pgTable('clients', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: varchar('name', { length: 150 }).notNull(),
+  tinNumber: varchar('tin_number', { length: 50 }),
   contactPerson: varchar('contact_person', { length: 150 }),
   phone: varchar('phone', { length: 30 }),
   email: varchar('email', { length: 254 }),
@@ -86,6 +87,8 @@ export const trips = pgTable(
     scheduledEnd: timestamp('scheduled_end', { withTimezone: true }).notNull(),
     budgetAllocated: numeric('budget_allocated', { precision: 12, scale: 2 }).notNull(),
     driverPay: numeric('driver_pay', { precision: 10, scale: 2 }).default('0.00').notNull(),
+    startMileage: integer('start_mileage'),
+    endMileage: integer('end_mileage'),
     cargoType: varchar('cargo_type', { length: 150 }),
     notes: text('notes'),
     delayReasons: jsonb('delay_reasons').$type<string[]>().default([]),

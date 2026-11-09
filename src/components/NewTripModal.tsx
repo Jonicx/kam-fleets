@@ -47,6 +47,7 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
 
   // Form states
   const [truckId, setTruckId] = useState('');
+  const [startMileage, setStartMileage] = useState('');
   const [driverId, setDriverId] = useState('');
   const [clientId, setClientId] = useState('');
   const [origin, setOrigin] = useState('');
@@ -163,6 +164,11 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
       setErrorMsg('Double-Booking Conflict: The selected truck is no longer available. Please choose another.');
       return;
     }
+    const startingMileage = Number(startMileage);
+    if (!startMileage.trim() || !Number.isInteger(startingMileage) || startingMileage < Number(selectedTruck.current_mileage ?? 0)) {
+      setErrorMsg(`Enter a whole-number starting odometer reading of at least ${Number(selectedTruck.current_mileage ?? 0).toLocaleString()} km.`);
+      return;
+    }
 
     if (!driverId) {
       setErrorMsg('Please select an Available driver from the directory dropdown.');
@@ -229,6 +235,7 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
     try {
       onCreateTrip({
         truck_id: truckId,
+        start_mileage: startingMileage,
         driver_id: driverId,
         client_id: clientId || undefined,
         origin: origin.trim(),
@@ -258,7 +265,7 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-start justify-center p-3 sm:items-start sm:p-4">
       <div className="modal-readable bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="bg-slate-900 text-white p-4 sm:p-5 flex items-start justify-between border-b border-slate-800">
@@ -329,7 +336,12 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
                 ) : (
                   <select
                     value={truckId}
-                    onChange={(e) => setTruckId(e.target.value)}
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      setTruckId(selectedId);
+                      const selected = trucks.find((truck) => truck.id === selectedId);
+                      setStartMileage(selected ? String(selected.current_mileage ?? 0) : '');
+                    }}
                     required
                     className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   >
@@ -354,10 +366,30 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
                           <span>{t.model}</span>
                           <span>•</span>
                           <span className="text-emerald-600 font-semibold">{t.status}</span>
+                          <span>•</span>
                         </>
                       ) : null;
                     })()}
                   </div>
+                )}
+                {truckId && (
+                  <label className="mt-3 block text-[11px] font-semibold text-slate-700">
+                    Starting odometer reading (km) *
+                    <input
+                      type="number"
+                      required
+                      min={trucks.find((truck) => truck.id === truckId)?.current_mileage ?? 0}
+                      step="1"
+                      inputMode="numeric"
+                      value={startMileage}
+                      onChange={(event) => setStartMileage(event.target.value)}
+                      aria-label="Starting odometer reading in kilometers"
+                      className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <span className="mt-1 block font-normal text-slate-500">
+                      Current recorded odometer: {(trucks.find((truck) => truck.id === truckId)?.current_mileage ?? 0).toLocaleString()} km
+                    </span>
+                  </label>
                 )}
               </div>
 
@@ -604,7 +636,7 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
                 <label className="text-[11px] font-bold text-slate-800 block mb-1">
                   Driver Pay specifically for this trip instance (Tsh) *
                   <span className="text-slate-400 font-normal block text-[10px]">
-                    Contract compensation payable to the driver upon route completion
+                    Contract compensation payable to the driver
                   </span>
                 </label>
                 <div className="relative">

@@ -19,9 +19,12 @@ function openPrintDocument(title: string, documentNumber: string, content: strin
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <title>${escapeHtml(title)} ${escapeHtml(documentNumber)}</title>
     <style>
-      :root { color-scheme: light; font-family: Arial, Helvetica, sans-serif; color: #172033; background: #fff; }
+      :root { color-scheme: light; font-family: 'Poppins', Arial, sans-serif; color: #172033; background: #fff; }
       * { box-sizing: border-box; }
       body { margin: 0; padding: 36px; background: #eef2f7; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .sheet { width: 100%; max-width: 820px; min-height: 900px; margin: 0 auto; padding: 44px 48px; background: #fff; box-shadow: 0 12px 38px rgba(15, 23, 42, .12); }

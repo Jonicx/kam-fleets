@@ -10,7 +10,7 @@ import { TripDetailModal } from './components/TripDetailModal.tsx';
 import { NewTripModal } from './components/NewTripModal.tsx';
 import { UpdateTripModal } from './components/UpdateTripModal.tsx';
 import { TripEditModal } from './components/TripEditModal.tsx';
-import { NeonAuthGate } from './components/NeonAuthGate.tsx';
+import { clearCachedOfflineSession, NeonAuthGate } from './components/NeonAuthGate.tsx';
 import { ProfileModal } from './components/ProfileModal.tsx';
 import { dbStore } from './db/store.ts';
 import { UserProvider, useUser } from './contexts/UserContext.tsx';
@@ -44,7 +44,7 @@ import {
 
 function FleetTripManagerApp() {
   const { userName, userEmail, userRole, profilePictureId, setUserInfo } = useUser();
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [activeTab, setActiveTab] = useState<string>(() => userRole === 'Admin' ? 'admin' : 'dashboard');
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [updatingTripId, setUpdatingTripId] = useState<string | null>(null);
   const [editingTripId, setEditingTripId] = useState<string | null>(null);
@@ -54,6 +54,7 @@ function FleetTripManagerApp() {
   const [showProfileModal, setShowProfileModal] = useState(false);
 
   const handleSignOut = async () => {
+    clearCachedOfflineSession();
     try {
       const result = await neonAuthClient.signOut();
       if (result.error) {
@@ -135,9 +136,13 @@ function FleetTripManagerApp() {
       )}
 
       {/* Main Workspace Body */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28 md:pb-6">
         <Suspense
-          fallback={<p role="status" className="py-16 text-center text-sm font-semibold text-slate-500">Loading...</p>}
+          fallback={
+            <>
+              <p role="status" className="text-sm text-center font-semibold text-slate-700">Focus...</p>
+            </>
+          }
         >
         {activeTab === 'dashboard' && (
           <DashboardView
@@ -176,7 +181,10 @@ function FleetTripManagerApp() {
             onSelectTrip={(id) => setSelectedTripId(id)}
             onOpenUpdateModal={(id) => setUpdatingTripId(id)}
             onOpenNewTripModal={() => setShowNewTripModal(true)}
-            onUpdateTripStatus={(id, status) => dbStore.updateTrip(id, { status })}
+            onUpdateTripStatus={(id, status, endMileage) => dbStore.updateTrip(id, {
+              status,
+              ...(endMileage === undefined ? {} : { end_mileage: endMileage }),
+            })}
             onDeleteTrip={(id) => dbStore.deleteTrip(id)}
             onEditTrip={(id) => setEditingTripId(id)}
           />
@@ -206,12 +214,13 @@ function FleetTripManagerApp() {
           />
         )}
 
-        {activeTab === 'clients' && isAdmin && (
+        {activeTab === 'clients' && (
           <ClientsView
             clients={clients}
             onCreateClient={(data) => dbStore.createClient(data)}
             onUpdateClient={(id, updates) => dbStore.updateClient(id, updates)}
             onDeleteClient={(id) => dbStore.deleteClient(id)}
+            canDeleteClients={isAdmin}
           />
         )}
 
@@ -260,7 +269,10 @@ function FleetTripManagerApp() {
         <UpdateTripModal
           trip={updatingTrip}
           onClose={() => setUpdatingTripId(null)}
-          onUpdateStatus={(id, status) => dbStore.updateTrip(id, { status })}
+          onUpdateStatus={(id, status, endMileage) => dbStore.updateTrip(id, {
+            status,
+            ...(endMileage === undefined ? {} : { end_mileage: endMileage }),
+          })}
           onAddDelayLog={(id, log) => dbStore.addDelayLog(id, log)}
           onRemoveDelayLog={(id, logId) => dbStore.removeDelayLog(id, logId)}
           onAddExpense={(id, exp) => dbStore.createExpense({ trip_id: id, ...exp })}
@@ -275,7 +287,10 @@ function FleetTripManagerApp() {
           trip={selectedTrip}
           onClose={() => setSelectedTripId(null)}
           onOpenUpdateModal={(id) => setUpdatingTripId(id)}
-          onUpdateStatus={(id, status) => dbStore.updateTrip(id, { status })}
+          onUpdateStatus={(id, status, endMileage) => dbStore.updateTrip(id, {
+            status,
+            ...(endMileage === undefined ? {} : { end_mileage: endMileage }),
+          })}
           onAddDelayLog={(id, log) => dbStore.addDelayLog(id, log)}
           onRemoveDelayLog={(id, logId) => dbStore.removeDelayLog(id, logId)}
           onAddExpense={(id, exp) => dbStore.createExpense({ trip_id: id, ...exp })}

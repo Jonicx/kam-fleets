@@ -313,7 +313,7 @@ export const TrucksView: React.FC<TrucksViewProps> = ({
               </div>
               <dl className="mt-3 grid grid-cols-2 gap-2 rounded-lg bg-slate-50 px-3 py-2.5 text-xs">
                 <div className="min-w-0"><dt className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Capacity</dt><dd className="mt-0.5 font-semibold text-slate-800">{truck.capacity_tons ? `${truck.capacity_tons} Tons` : '—'}</dd></div>
-                <div className="min-w-0 border-l border-slate-200 pl-3"><dt className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Mileage</dt><dd className="mt-0.5 truncate font-mono font-semibold text-slate-800">{(truck.current_mileage || 0).toLocaleString()} km</dd></div>
+                <div className="min-w-0 border-l border-slate-200 pl-3"><dt className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Current odometer</dt><dd className="mt-0.5 truncate font-mono font-semibold text-slate-800">{(truck.current_mileage || 0).toLocaleString()} km</dd></div>
               </dl>
               <div className="mt-3 flex flex-wrap items-center gap-1.5">
                 {truck.status !== 'On Trip' && (
@@ -342,7 +342,7 @@ export const TrucksView: React.FC<TrucksViewProps> = ({
                 <th className="py-3.5 px-4">Model &amp; Specs</th>
                 <th className="py-3.5 px-4">Status</th>
                 <th className="py-3.5 px-4">Haul Capacity</th>
-                <th className="py-3.5 px-4">Odometer Mileage</th>
+                <th className="py-3.5 px-4">Current odometer</th>
                 <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -433,7 +433,7 @@ export const TrucksView: React.FC<TrucksViewProps> = ({
 
       {/* Add Truck Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-start justify-center p-3 sm:items-start sm:p-4">
           <div className="modal-readable bg-white w-full max-w-md rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
             <div className="bg-slate-900 text-white p-4 flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -565,7 +565,7 @@ export const TrucksView: React.FC<TrucksViewProps> = ({
 
       {serviceTruck && (
         <div
-          className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
+          className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-start justify-center p-3 sm:items-start sm:p-4"
           role="presentation"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) setServiceTruckId(null);

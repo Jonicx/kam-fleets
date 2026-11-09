@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useCallback, useContext, ReactNode } from 'react';
 
 interface UserContextType {
   userName: string;
@@ -16,12 +16,12 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [userRole, setUserRole] = React.useState('');
   const [profilePictureId, setProfilePictureId] = React.useState<string | undefined>();
 
-  const setUserInfo = (info: { userName: string; userEmail: string; userRole: string; profilePictureId?: string }) => {
+  const setUserInfo = useCallback((info: { userName: string; userEmail: string; userRole: string; profilePictureId?: string }) => {
     setUserName(info.userName);
     setUserEmail(info.userEmail);
     setUserRole(info.userRole);
     setProfilePictureId(info.profilePictureId);
-  };
+  }, []);
 
   return (
     <UserContext.Provider value={{ userName, userEmail, userRole, profilePictureId, setUserInfo }}>

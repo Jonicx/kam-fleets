@@ -1,6 +1,6 @@
 import React, { FormEvent, useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { dbStore } from '../db/store.ts';
-import { checkNeonHealth, fetchCurrentMember, neonAuthClient, teamBackend, type TeamMember } from '../neon.ts';
+import { checkNeonHealth, fetchCurrentMember, neonAuthClient, teamBackend, type TeamMember, NeonApiError } from '../neon.ts';
 import { useUser } from "../contexts/UserContext";
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { Download, Wifi, WifiOff } from 'lucide-react';
@@ -30,9 +30,21 @@ const useSyncState = () =>
 
 const memberCacheKey = (userId: string) => `kam_fleets_member_v1_${encodeURIComponent(userId)}`;
 const legacyMemberCacheKey = (userId: string) => `jcq_fleet_member_v1_${encodeURIComponent(userId)}`;
+const memberValidationKey = (userId: string) => `kam_fleets_member_validated_at_v1_${encodeURIComponent(userId)}`;
+const activeMemberSessionKey = 'kam_fleets_active_member_session_v1';
+const OFFLINE_ACCESS_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
+
+const isNetworkError = (error: unknown) =>
+  error instanceof Error &&
+  /network|fetch|ERR_INTERNET_DISCONNECTED|failed to fetch|service unavailable/i.test(error.message);
 
 const readCachedMember = (userId: string): TeamMember | null => {
   try {
+    const validatedAt = Number(localStorage.getItem(memberValidationKey(userId)));
+    if (!Number.isFinite(validatedAt) || validatedAt > Date.now() || Date.now() - validatedAt > OFFLINE_ACCESS_GRACE_MS) {
+      return null;
+    }
+
     const stored = localStorage.getItem(memberCacheKey(userId)) ??
       localStorage.getItem(legacyMemberCacheKey(userId));
     if (!stored) return null;
@@ -63,9 +75,52 @@ const readCachedMember = (userId: string): TeamMember | null => {
 const cacheMember = (member: TeamMember) => {
   try {
     localStorage.setItem(memberCacheKey(member.id), JSON.stringify(member));
+    localStorage.setItem(memberValidationKey(member.id), String(Date.now()));
   } catch (cacheError) {
     console.warn('Failed to cache the workspace profile for offline use:', cacheError);
+    try {
+      sessionStorage.removeItem(activeMemberSessionKey);
+    } catch (sessionError) {
+      console.warn('Failed to clear the active workspace session after a cache error:', sessionError);
+    }
+    return;
   }
+
+  try {
+    sessionStorage.setItem(activeMemberSessionKey, member.id);
+  } catch (cacheError) {
+    console.warn('Failed to cache the active workspace session for offline use:', cacheError);
+  }
+};
+
+const readCachedActiveMemberId = () => {
+  try {
+    return sessionStorage.getItem(activeMemberSessionKey);
+  } catch (cacheError) {
+    console.warn('Failed to restore the active workspace session:', cacheError);
+    return null;
+  }
+};
+
+export const clearCachedOfflineSession = () => {
+  try {
+    sessionStorage.removeItem(activeMemberSessionKey);
+  } catch (cacheError) {
+    console.warn('Failed to clear the cached workspace session:', cacheError);
+  }
+};
+
+const clearCachedMember = (userId: string) => {
+  clearCachedOfflineSession();
+  try {
+    localStorage.removeItem(memberCacheKey(userId));
+    localStorage.removeItem(legacyMemberCacheKey(userId));
+    localStorage.removeItem(memberValidationKey(userId));
+  } catch (cacheError) {
+    console.error('Failed to clear the cached workspace profile:', cacheError);
+    throw new Error('The saved workspace profile could not be cleared from this browser.');
+  }
+  dbStore.clearLocalData(userId);
 };
 
 export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut, onOpenProfile }) => {
@@ -90,7 +145,8 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
   const activateCachedMember = async (userId: string) => {
     const cachedMember = readCachedMember(userId);
     if (!cachedMember) {
-      setError('Your saved workspace profile is unavailable offline. Reconnect to restore your account.');
+      clearCachedMember(userId);
+      setError('Offline access expired or the saved workspace profile is unavailable. Reconnect to verify your account.');
       return false;
     }
 
@@ -132,8 +188,9 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
       const sessionUser = sessionResult.data?.user;
 
       if (!navigator.onLine) {
-        if (sessionUser) {
-          await activateCachedMember(sessionUser.id);
+        const cachedUserId = sessionUser?.id ?? readCachedActiveMemberId();
+        if (cachedUserId) {
+          await activateCachedMember(cachedUserId);
           return;
         }
         setError('You are offline and there is no saved workspace session available.');
@@ -149,6 +206,7 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
       }
 
       if (!current.active) {
+        clearCachedOfflineSession();
         setPendingMember(current);
         return;
       }
@@ -168,21 +226,100 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
       });
     } catch (activationError) {
       // Handle offline/network errors gracefully
-      if (activationError instanceof Error && /fetch|network|ERR_INTERNET_DISCONNECTED|failed to fetch|Service Unavailable/i.test(activationError.message)) {
-        const sessionResult = await neonAuthClient.getSession();
-        const sessionUser = sessionResult.data?.user;
-        if (sessionUser) {
-          if (await activateCachedMember(sessionUser.id)) return;
-        } else {
-          setError('Unable to connect. Please check your internet connection and try again.');
+      if (!navigator.onLine || isNetworkError(activationError)) {
+        const sessionResult = await neonAuthClient.getSession().catch(() => null);
+        const cachedUserId = sessionResult?.data?.user?.id ?? readCachedActiveMemberId();
+        if (cachedUserId) {
+          await activateCachedMember(cachedUserId);
+          return;
         }
+        setError('Unable to connect. Reconnect to restore your saved workspace session.');
       } else {
-        setError(activationError instanceof Error ? activationError.message : 'Could not connect to Neon.');
+        // Check if it's a 403 error (revoked/inactive account)
+        const status = activationError instanceof NeonApiError ? activationError.status : undefined;
+        if (status === 403) {
+          setError('Your account has been revoked. Please contact an administrator for access.');
+        } else {
+          setError(activationError instanceof Error ? activationError.message : 'Could not connect to Neon.');
+        }
       }
     } finally {
       setIsLoading(false);
     }
   };
+
+  const revokeWorkspaceAccess = (userId: string, message: string) => {
+    let cacheClearFailed = false;
+    try {
+      clearCachedMember(userId);
+    } catch (cacheError) {
+      cacheClearFailed = true;
+      console.error('Workspace access was revoked, but local data cleanup was incomplete.', cacheError);
+    } finally {
+      dbStore.disconnectRemote();
+      setMember(null);
+      setPendingMember(null);
+      setUserInfo({ userName: '', userEmail: '', userRole: '' });
+      setError(cacheClearFailed
+        ? `${message} Some local data could not be cleared; clear this browser's site data.`
+        : message);
+    }
+  };
+
+  useEffect(() => {
+    if (!member || !isOnline) return;
+    let cancelled = false;
+    let revalidating = false;
+
+    const revalidateMembership = async () => {
+      if (cancelled || revalidating) return;
+      revalidating = true;
+      try {
+        const current = await fetchCurrentMember();
+        if (cancelled) return;
+        if (!current?.active) {
+          revokeWorkspaceAccess(member.id, 'Workspace access is no longer active. Contact an administrator if you think this is a mistake.');
+          return;
+        }
+        cacheMember(current);
+        setMember(current);
+        setUserInfo({
+          userName: current.name || current.email,
+          userEmail: current.email,
+          userRole: current.role,
+          profilePictureId: current.profilePictureId,
+        });
+      } catch (revalidationError) {
+        const status = revalidationError instanceof Error && 'status' in revalidationError
+          ? Number(revalidationError.status)
+          : undefined;
+        if (
+          cancelled ||
+          isNetworkError(revalidationError) ||
+          (status !== 401 && status !== 403 && status !== 404)
+        ) return;
+        revokeWorkspaceAccess(member.id, 'Your session or workspace access has expired. Sign in again to continue.');
+      } finally {
+        revalidating = false;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void revalidateMembership();
+    };
+
+    void revalidateMembership();
+    const intervalId = window.setInterval(() => void revalidateMembership(), 5 * 60 * 1000);
+    window.addEventListener('focus', revalidateMembership);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', revalidateMembership);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [member?.id, isOnline, setUserInfo]);
 
   useEffect(() => {
     let cancelled = false;
@@ -191,13 +328,32 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
         if (sessionError) throw new Error(sessionError.message);
         if (cancelled) return;
         if (data?.user) await activateUser();
-        else setIsLoading(false);
-      })
-      .catch((sessionError: unknown) => {
-        if (!cancelled) {
-          setError(sessionError instanceof Error ? sessionError.message : 'Could not restore the Neon Auth session.');
+        else if (!navigator.onLine) {
+          const cachedUserId = readCachedActiveMemberId();
+          if (cachedUserId) {
+            await activateCachedMember(cachedUserId);
+          } else {
+            setError('You are offline and there is no saved workspace session available.');
+          }
+          setIsLoading(false);
+        } else {
+          clearCachedOfflineSession();
           setIsLoading(false);
         }
+      })
+      .catch(async (sessionError: unknown) => {
+        if (cancelled) return;
+        if (!navigator.onLine || isNetworkError(sessionError)) {
+          const cachedUserId = readCachedActiveMemberId();
+          if (cachedUserId) {
+            await activateCachedMember(cachedUserId);
+          } else {
+            setError('You are offline and there is no saved workspace session available.');
+          }
+        } else {
+          setError(sessionError instanceof Error ? sessionError.message : 'Could not restore the Neon Auth session.');
+        }
+        setIsLoading(false);
       });
     return () => {
       cancelled = true;
@@ -250,7 +406,13 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
       }
       await activateUser();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Authentication failed.');
+      // Check if it's a 403 error (revoked/inactive account)
+      const status = submitError instanceof NeonApiError ? submitError.status : undefined;
+      if (status === 403) {
+        setError('Your account has been revoked. Please contact an administrator for access.');
+      } else {
+        setError(submitError instanceof Error ? submitError.message : 'Authentication failed.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -262,6 +424,7 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
     try {
       const result = await neonAuthClient.signOut();
       if (result.error) throw new Error(result.error.message);
+      clearCachedOfflineSession();
       dbStore.disconnectRemote();
       setMember(null);
       setPendingMember(null);
@@ -275,10 +438,11 @@ export const NeonAuthGate: React.FC<NeonAuthGateProps> = ({ children, onSignOut,
 
   if (isLoading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-        <p role="status" className="rounded-xl border border-slate-200 bg-white px-5 py-4 text-sm font-semibold text-slate-700 shadow-sm">
-          In a min twizzy...
-        </p>
+      <main className="flex min-h-screen items-center justify-center bg-white px-4">
+        <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+          <p role="status" className="text-sm font-semibold text-slate-700">In a min twizzy</p>
+          <span className="loading-dots" aria-hidden="true"><span /><span /><span /></span>
+        </div>
       </main>
     );
   }

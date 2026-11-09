@@ -53,6 +53,7 @@ export interface Driver {
 export interface Client {
   id: string;
   name: string;
+  tin_number?: string;
   contact_person?: string;
   phone?: string;
   email?: string;
@@ -74,6 +75,8 @@ export interface Trip {
   scheduled_end: string;   // ISO 8601
   budget_allocated: number; // Planned trip budget estimate, not invoiced revenue
   driver_pay: number;      // Driver compensation for this trip instance
+  start_mileage?: number;
+  end_mileage?: number;
   cargo_type?: string;
   notes?: string;
   delay_logs: DelayLog[]; // Dynamic delay reasons with timestamps
@@ -108,6 +111,7 @@ export interface CreateTripPayload {
   scheduled_end: string;
   budget_allocated: number;
   driver_pay: number;
+  start_mileage?: number;
   cargo_type?: string;
   notes?: string;
   initial_expenses?: InitialExpenseInput[];

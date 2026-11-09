@@ -34,7 +34,7 @@ const DRIVERS: TableSpec = {
 const CLIENTS: TableSpec = {
   table: 'clients',
   columns: {
-    id: 'id', name: 'name', contact_person: 'contact_person', phone: 'phone', email: 'email',
+    id: 'id', name: 'name', tin_number: 'tin_number', contact_person: 'contact_person', phone: 'phone', email: 'email',
     address: 'address', notes: 'notes', created_at: 'created_at', updated_at: 'updated_at',
   },
 };
@@ -43,11 +43,12 @@ const TRIPS: TableSpec = {
   columns: {
     id: 'id', truck_id: 'truck_id', driver_id: 'driver_id', client_id: 'client_id', status: 'status', origin: 'origin', destination: 'destination',
     scheduled_start: 'scheduled_start', scheduled_end: 'scheduled_end', budget_allocated: 'budget_allocated',
-    driver_pay: 'driver_pay', cargo_type: 'cargo_type', notes: 'notes', final_profit_loss: 'final_profit_loss',
+    driver_pay: 'driver_pay', start_mileage: 'start_mileage', end_mileage: 'end_mileage',
+    cargo_type: 'cargo_type', notes: 'notes', final_profit_loss: 'final_profit_loss',
     total_expenses_cost: 'total_expenses_cost', total_spare_parts_cost: 'total_spare_parts_cost',
     financial_flag: 'financial_flag', completed_at: 'completed_at', created_at: 'created_at', updated_at: 'updated_at',
   },
-  numeric: ['budget_allocated', 'driver_pay', 'final_profit_loss', 'total_expenses_cost', 'total_spare_parts_cost'],
+  numeric: ['budget_allocated', 'driver_pay', 'start_mileage', 'end_mileage', 'final_profit_loss', 'total_expenses_cost', 'total_spare_parts_cost'],
   actorColumn: 'created_by',
 };
 const SERVICE_RECORDS: TableSpec = {

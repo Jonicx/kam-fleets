@@ -97,7 +97,7 @@ describe('Integration Tests - End-to-End Workflows', () => {
       expect(dbStore.getDriver(driver.id)?.status).toBe('On Trip');
 
       // Complete trip
-      dbStore.completeTrip(trip.id);
+      dbStore.completeTrip(trip.id, 0);
       const completedTrips = dbStore.getTrips();
       updatedTrip = completedTrips.find((t) => t.id === trip.id);
       expect(updatedTrip?.status).toBe('Completed');
@@ -231,7 +231,7 @@ describe('Integration Tests - End-to-End Workflows', () => {
       });
 
       dbStore.updateTrip(trip.id, { status: 'Ongoing' });
-      dbStore.completeTrip(trip.id);
+      dbStore.completeTrip(trip.id, 0);
 
       // Create invoice
       const invoice = dbStore.createInvoice({
@@ -287,7 +287,7 @@ describe('Integration Tests - End-to-End Workflows', () => {
       });
 
       dbStore.updateTrip(trip.id, { status: 'Ongoing' });
-      dbStore.completeTrip(trip.id);
+      dbStore.completeTrip(trip.id, 0);
 
       const invoice = dbStore.createInvoice({
         trip_id: trip.id,
@@ -464,10 +464,10 @@ describe('Integration Tests - End-to-End Workflows', () => {
 
       expect(() => dbStore.deleteTruck(truck.id)).toThrow();
 
-      // Completed trips remain in history and continue to reference their truck.
-      dbStore.updateTrip(trip.id, { status: 'Completed' });
+      // Planned trips cannot be completed without first being started.
+      expect(() => dbStore.updateTrip(trip.id, { status: 'Completed', end_mileage: 0 })).toThrow('Only an ongoing trip can be completed');
 
-      expect(dbStore.getTrips().find((item) => item.id === trip.id)?.status).toBe('Completed');
+      expect(dbStore.getTrips().find((item) => item.id === trip.id)?.status).toBe('Planned');
       expect(() => dbStore.deleteTruck(truck.id)).toThrow();
     });
 

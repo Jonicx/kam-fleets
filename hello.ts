@@ -25,6 +25,9 @@ if (allowedOrigins.size === 0) throw new Error('APP_ALLOWED_ORIGINS is required.
 const MAX_BODY_BYTES = 256_000;
 const TEAM_LOCK_KEY = 4242;
 const LOCK_BYPASS_COMMANDS = new Set(['deleteTrip', 'resetToDefault']);
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMITS = { read: 120, write: 30 } as const;
+let lastRateLimitCleanupAt = 0;
 
 const pool = new Pool({ connectionString: databaseUrl, max: 5 });
 attachDatabasePool(pool);
@@ -51,6 +54,7 @@ const SECURITY_HEADERS = {
   'x-content-type-options': 'nosniff',
   'referrer-policy': 'no-referrer',
   'x-frame-options': 'DENY',
+  'permissions-policy': 'camera=(), microphone=(), geolocation=()',
 };
 
 const jsonResponse = (body: unknown, status: number, headers: Headers | Record<string, string> = {}) => {
@@ -77,6 +81,7 @@ function getCorsHeaders(request: Request): Headers | null {
   const headers = new Headers({
     'access-control-allow-headers': 'authorization, content-type',
     'access-control-allow-methods': 'GET, POST, PATCH, OPTIONS',
+    'access-control-expose-headers': 'RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, Retry-After',
     'access-control-max-age': '600',
     vary: 'Origin',
   });
@@ -95,6 +100,34 @@ async function getUserId(request: Request): Promise<string> {
     // fall through
   }
   throw new HttpError(401, 'Your session has expired. Sign in again.');
+}
+
+async function applyRateLimit(userId: string, bucket: keyof typeof RATE_LIMITS) {
+  const { rows } = await pool.query(
+    `INSERT INTO api_rate_limits (user_id, bucket, window_started_at, request_count)
+     VALUES ($1, $2, date_trunc('minute', CURRENT_TIMESTAMP), 1)
+     ON CONFLICT (user_id, bucket, window_started_at)
+     DO UPDATE SET request_count = api_rate_limits.request_count + 1
+     RETURNING request_count, window_started_at`,
+    [userId, bucket],
+  );
+  const row = rows[0] as { request_count: number; window_started_at: Date };
+  const limit = RATE_LIMITS[bucket];
+  const resetAt = new Date(row.window_started_at).getTime() + RATE_LIMIT_WINDOW_MS;
+  const remaining = Math.max(0, limit - Number(row.request_count));
+  const retryAfterSeconds = Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+
+  if (Date.now() - lastRateLimitCleanupAt >= 10 * 60_000) {
+    lastRateLimitCleanupAt = Date.now();
+    await pool.query(
+      `DELETE FROM api_rate_limits
+       WHERE window_started_at < CURRENT_TIMESTAMP - INTERVAL '24 hours'`,
+    ).catch((error) => {
+      console.error('Failed to clean up expired API rate-limit records.', error);
+    });
+  }
+
+  return { limit, remaining, resetAt: Math.ceil(resetAt / 1000), retryAfterSeconds, allowed: Number(row.request_count) <= limit };
 }
 
 const toAppUser = (row: Record<string, unknown>): AppUser => ({
@@ -146,7 +179,7 @@ async function resolveUser(userId: string): Promise<AppUser> {
        VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (user_id) DO UPDATE SET email = EXCLUDED.email
        RETURNING user_id, email, full_name, role, is_active, profile_picture_id`,
-      [userId, authUser.rows[0].email, authUser.rows[0].name || '', firstAdmin ? 'Admin' : 'Dispatcher', true, randomProfilePic],
+      [userId, authUser.rows[0].email, authUser.rows[0].name || '', firstAdmin ? 'Admin' : 'Dispatcher', firstAdmin, randomProfilePic],
     );
     await client.query('COMMIT');
     return toAppUser(inserted.rows[0]);
@@ -159,7 +192,7 @@ async function resolveUser(userId: string): Promise<AppUser> {
 }
 
 function requireActive(user: AppUser) {
-  if (!user.active) throw new HttpError(403, 'Your account is waiting for an administrator to approve access.');
+  if (!user.active) throw new HttpError(403, 'Your account has been revoked. Please contact an administrator for access.');
 }
 
 function requireAdmin(user: AppUser) {
@@ -322,7 +355,20 @@ export default {
       const knownRoute = /^(GET \/me|PATCH \/me|GET \/state|POST \/commands|GET \/audit|GET \/team|PATCH \/team\/[^/]+)$/.test(route);
       if (!knownRoute) return jsonResponse({ error: 'Not found.' }, 404, corsHeaders);
 
-      const user = await resolveUser(await getUserId(request));
+      const userId = await getUserId(request);
+      const rateLimit = await applyRateLimit(
+        userId,
+        request.method === 'GET' ? 'read' : 'write',
+      );
+      corsHeaders.set('RateLimit-Limit', String(rateLimit.limit));
+      corsHeaders.set('RateLimit-Remaining', String(rateLimit.remaining));
+      corsHeaders.set('RateLimit-Reset', String(rateLimit.resetAt));
+      if (!rateLimit.allowed) {
+        corsHeaders.set('Retry-After', String(rateLimit.retryAfterSeconds));
+        return jsonResponse({ error: 'Too many requests. Please wait before trying again.' }, 429, corsHeaders);
+      }
+
+      const user = await resolveUser(userId);
 
       if (route === 'GET /me') return jsonResponse({ user }, 200, corsHeaders);
 

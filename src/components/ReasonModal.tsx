@@ -29,7 +29,7 @@ export const ReasonModal: React.FC<ReasonModalProps> = ({ title, description, co
       role="dialog"
       aria-modal="true"
       aria-labelledby="reason-modal-title"
-      className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-start justify-center p-3 sm:items-start sm:p-4"
       onKeyDown={(event) => event.key === 'Escape' && onClose()}
     >
       <form onSubmit={submit} className="modal-readable bg-white rounded-2xl p-6 max-w-md w-full border border-slate-200 shadow-2xl space-y-4 relative">

@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import {
   X,
-  Navigation2,
-  Calendar,
   Wallet,
   AlertTriangle,
   Receipt,
@@ -15,15 +13,12 @@ import {
   MapPin,
   CheckCircle2,
   CheckCircle,
-  Check,
-  Lock,
   ShieldAlert,
 } from 'lucide-react';
 import {
   EnrichedTrip,
   ExpenseType,
   TripStatus,
-  DelayLog,
 } from '../types/database.ts';
 import { formatTsh } from '../utils/currency.ts';
 import { getDelaySeverityClasses } from '../utils/delaySeverity.ts';
@@ -32,7 +27,7 @@ interface TripDetailModalProps {
   trip: EnrichedTrip;
   onClose: () => void;
   onOpenUpdateModal?: (tripId: string) => void;
-  onUpdateStatus: (tripId: string, status: TripStatus) => void;
+  onUpdateStatus: (tripId: string, status: TripStatus, endMileage?: number) => void;
   onAddDelayLog: (
     tripId: string,
     log: {
@@ -101,9 +96,14 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
 
   const [modalError, setModalError] = useState<string | null>(null);
   const [showCompleteConfirmModal, setShowCompleteConfirmModal] = useState(false);
+  const [completionMileage, setCompletionMileage] = useState('');
+  const [completionMileageError, setCompletionMileageError] = useState('');
+  const startingMileage = Math.max(
+    Number(trip.start_mileage ?? 0),
+    Number(trip.truck?.current_mileage ?? 0),
+  );
 
   const isCompleted = trip.status === 'Completed';
-  const isOngoing = trip.status === 'Ongoing';
 
   const budget = Number(trip.budget_allocated) || 0;
   const driverPay = Number(trip.driver_pay) || 0;
@@ -186,7 +186,7 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
   const isOver = trip.is_over_budget;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-start justify-center p-2 sm:items-start sm:p-4">
       <div className="modal-readable bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] min-w-0">
         {/* Header */}
         <div className="bg-slate-900 text-white p-3 sm:p-5 border-b border-slate-800">
@@ -260,13 +260,6 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
                 <span className={`text-xl font-black font-mono tabular-nums ${isWithinBudget ? 'text-emerald-400' : 'text-rose-400'}`}>
                   {`${profitLoss >= 0 ? '+' : '-'}${formatTsh(Math.abs(profitLoss), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 </span>
-              </div>
-            </div>
-
-            {/* Formula calculation card */}
-            <div className="bg-slate-950/70 p-2 rounded-xl  border-slate-800 font-mono text-xs space-y-1.5">
-              <div className="text-[11px] text-slate-400 font-sans font-semibold pb-1  border-slate-800/80 flex items-center justify-between">
-                <span>Budget variance = budget estimate − driver pay − trip expenses − in-trip parts. This is not billed revenue or cash received.</span>
               </div>
             </div>
           </div>
@@ -902,9 +895,21 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
                         <span className="font-medium text-slate-800">{trip.truck.capacity_tons} Tons</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-500">Odometer:</span>
+                        <span className="text-slate-500">Current odometer:</span>
                         <span className="font-mono text-slate-800">{trip.truck.current_mileage?.toLocaleString()} km</span>
                       </div>
+                      {trip.start_mileage !== undefined && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Trip start odometer:</span>
+                          <span className="font-mono text-slate-800">{trip.start_mileage.toLocaleString()} km</span>
+                        </div>
+                      )}
+                      {trip.end_mileage !== undefined && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Trip end odometer:</span>
+                          <span className="font-mono text-slate-800">{trip.end_mileage.toLocaleString()} km</span>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <p className="text-xs text-slate-400">No truck associated with this trip ID.</p>
@@ -1001,7 +1006,11 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
             )}
             {trip.status === 'Ongoing' && (
               <button
-                onClick={() => setShowCompleteConfirmModal(true)}
+                onClick={() => {
+                  setCompletionMileage('');
+                  setCompletionMileageError('');
+                  setShowCompleteConfirmModal(true);
+                }}
                 className="flex w-full items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-bold text-white transition hover:bg-emerald-500 sm:w-auto sm:text-xs"
               >
                 <CheckCircle className="h-3.5 w-3.5" />
@@ -1017,6 +1026,92 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
           </button>
         </div>
       </div>
+      {showCompleteConfirmModal && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto bg-slate-950/70 backdrop-blur-xs p-3 sm:flex sm:items-start sm:justify-center sm:p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="complete-trip-title"
+            className="mx-auto w-full max-w-md space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-6"
+          >
+            <div>
+              <h2 id="complete-trip-title" className="text-base font-bold text-slate-900">Complete and finalize this trip?</h2>
+              <p className="mt-1 text-xs text-slate-600">
+                {trip.origin} → {trip.destination}. Completing the trip releases the assigned truck and driver and locks its records.
+              </p>
+            </div>
+            <label className="block text-xs font-semibold text-slate-700">
+              Final odometer reading (km) *
+              <input
+                type="number"
+                required
+                min={startingMileage}
+                step="1"
+                inputMode="numeric"
+                value={completionMileage}
+                onChange={(event) => {
+                  setCompletionMileage(event.target.value);
+                  setCompletionMileageError('');
+                }}
+                aria-label="Final odometer reading in kilometers"
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+              />
+              <span className="mt-1 block text-[11px] font-normal text-slate-500">
+                Must be at least the truck&apos;s current reading of {startingMileage.toLocaleString()} km.
+              </span>
+              {completionMileageError && <span role="alert" className="mt-1 block text-[11px] font-semibold text-rose-700">{completionMileageError}</span>}
+            </label>
+            <dl className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs">
+              <div className="flex justify-between gap-3"><dt>Budget estimate</dt><dd className="font-semibold">{formatTsh(budget)}</dd></div>
+              <div className="flex justify-between gap-3"><dt>Driver pay</dt><dd className="font-semibold">{formatTsh(driverPay)}</dd></div>
+              <div className="flex justify-between gap-3"><dt>Trip expenses</dt><dd className="font-semibold">{formatTsh(totalExp)}</dd></div>
+              <div className="flex justify-between gap-3"><dt>In-trip parts</dt><dd className="font-semibold">{formatTsh(totalSpares)}</dd></div>
+              <div className="flex justify-between gap-3 border-t border-slate-200 pt-2 font-bold">
+                <dt>Budget variance</dt>
+                <dd className={calculatedProfitLoss >= 0 ? 'text-emerald-700' : 'text-rose-700'}>
+                  {calculatedProfitLoss >= 0 ? '+' : '-'}{formatTsh(Math.abs(calculatedProfitLoss))}
+                </dd>
+              </div>
+            </dl>
+            <p className="text-[11px] text-slate-500">
+              Budget variance is not billed revenue or accounting profit. Completed-trip records cannot be changed.
+            </p>
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-900">
+              The final odometer is saved to this trip and becomes the truck&apos;s current odometer reading.
+            </p>
+            <div className="flex flex-col-reverse justify-end gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => setShowCompleteConfirmModal(false)}
+                className="rounded-lg px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const finalMileage = Number(completionMileage);
+                  if (!completionMileage.trim() || !Number.isInteger(finalMileage) || finalMileage < startingMileage) {
+                    setCompletionMileageError(`Enter a whole-number odometer reading of at least ${startingMileage.toLocaleString()} km.`);
+                    return;
+                  }
+                  try {
+                    onUpdateStatus(trip.id, 'Completed', finalMileage);
+                    setShowCompleteConfirmModal(false);
+                    onClose();
+                  } catch (completionError) {
+                    setModalError(completionError instanceof Error ? completionError.message : 'The trip could not be completed.');
+                    setShowCompleteConfirmModal(false);
+                  }
+                }}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500"
+              >
+                Confirm &amp; Finalize Trip
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 };

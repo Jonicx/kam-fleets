@@ -23,6 +23,13 @@ export interface TeamMember {
   profilePictureId?: string;
 }
 
+export class NeonApiError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = 'NeonApiError';
+  }
+}
+
 function getFunctionUrl(path: string) {
   if (!functionBaseUrl) {
     throw new Error('VITE_NEON_FUNCTION_HELLO_BASE_URL is not configured.');
@@ -33,22 +40,17 @@ function getFunctionUrl(path: string) {
 async function getAccessToken() {
   // Better Auth uses session-based auth, try to get the session token
   const session = await neonAuthClient.getSession();
-  if (session.error) throw new Error(session.error.message);
-  if (!session.data?.session) throw new Error('No active session found. Please sign in again.');
+  if (session.error) throw new NeonApiError(session.error.message ?? 'Your session has expired.', 401);
+  if (!session.data?.session) throw new NeonApiError('No active session found. Please sign in again.', 401);
 
-  // Try to get an access token from the session
-  const sessionData = session.data.session as any;
-  if (sessionData.token) return sessionData.token;
+  const sessionToken = session.data.session.token;
+  if (sessionToken) return sessionToken;
 
-  // Fallback: use session ID as the bearer token
-  if (sessionData.id) return sessionData.id;
-
-  // Last resort: try the token() method
   const tokenResult = await neonAuthClient.token();
   if (tokenResult.data?.token) return tokenResult.data.token;
-  if (tokenResult.error) throw new Error(tokenResult.error.message);
+  if (tokenResult.error) throw new NeonApiError(tokenResult.error.message ?? 'Your session has expired.', 401);
 
-  throw new Error('Could not obtain an access token from the session.');
+  throw new NeonApiError('Could not obtain an access token from the session.', 401);
 }
 
 async function getResponseError(response: Response) {
@@ -127,20 +129,15 @@ export const teamBackend = {
 };
 
 export async function fetchCurrentMember(): Promise<TeamMember | null> {
-  try {
-    const token = await getAccessToken();
-    const response = await fetch(getFunctionUrl('me'), {
-      headers: { 'authorization': `Bearer ${token}` }
-    });
-    if (response.status === 404) return null;
-    if (!response.ok) throw new Error(await getResponseError(response));
+  const token = await getAccessToken();
+  const response = await fetch(getFunctionUrl('me'), {
+    headers: { 'authorization': `Bearer ${token}` }
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new NeonApiError(await getResponseError(response), response.status);
 
-    const data = await response.json();
-    return data.user || null;
-  } catch (error) {
-    console.error('Failed to fetch current team member:', error);
-    return null;
-  }
+  const data = await response.json();
+  return data.user || null;
 }
 
 export async function listTeamMembers(): Promise<TeamMember[]> {

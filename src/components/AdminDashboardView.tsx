@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BarChart3,
   TrendingDown,
@@ -102,6 +102,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [datePreset, setDatePreset] = useState<DatePreset>('today');
   const [today, setToday] = useState(() => new Date());
   const [activeSection, setActiveSection] = useState<DashboardSection>('overview');
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const filtersRef = useRef<HTMLDivElement>(null);
   const [showBudgetInChart, setShowBudgetInChart] = useState(false);
   const [showAllWarnings, setShowAllWarnings] = useState(false);
   const [customFrom, setCustomFrom] = useState('');
@@ -135,6 +137,24 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLoadError, setAuditLoadError] = useState('');
   const [visibleAuditCount, setVisibleAuditCount] = useState(30);
+
+  useEffect(() => {
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (event.target instanceof Node && !filtersRef.current?.contains(event.target)) {
+        setIsFiltersOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsFiltersOpen(false);
+    };
+
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, []);
 
   useEffect(() => {
     const now = new Date();
@@ -467,6 +487,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           ? `${formatDate(new Date(reportRange.start).toISOString())} – ${formatDate(new Date(reportRange.end).toISOString())}`
           : 'Select dates';
   const isReportPeriodFiltered = datePreset !== 'today';
+  const activeFilterLabel = [
+    filter !== 'All' ? filter : null,
+    isReportPeriodFiltered ? reportPeriodLabel : null,
+  ].filter((label): label is string => label !== null).join(' · ');
 
   const handleCreateInvoice = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -734,117 +758,145 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         </div>
 
         <div className="min-w-0 space-y-4">
-          <section aria-label="Financial key performance indicators and report period" className="grid grid-cols-1 gap-3">
-            <AdminSummaryDropdown
-              id="admin-financial-summary-cards"
-              label="Financial Summary"
-              openOnLargeScreens
-            >
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <MetricCard
-                  label="Cash collected"
-                  value={formatTsh(analytics.collectedCash)}
-                  detail="Payments received during these dates"
-                  icon={<Wallet className="h-4 w-4" />}
-                  accent="text-emerald-600 bg-emerald-50"
-                  explanation="Money actually received during this date range for trips in the selected status filter."
-                />
-                <MetricCard
-                  label="Outstanding balance"
-                  value={formatTsh(analytics.outstandingBalance)}
-                  detail="Current unpaid on invoices issued in period"
-                  icon={<Receipt className="h-4 w-4" />}
-                  accent="text-amber-600 bg-amber-50"
-                  explanation="What is still owed today on invoices issued during this date range."
-                />
-                <MetricCard
-                  label="Invoiced"
-                  value={formatTsh(analytics.invoicedAmount)}
-                  detail={`${analytics.reportInvoices.length} invoice${analytics.reportInvoices.length === 1 ? '' : 's'} issued in period`}
-                  icon={<FileText className="h-4 w-4" />}
-                  accent="text-blue-600 bg-blue-50"
-                  explanation="The total value of invoices issued during this date range."
-                />
-                <MetricCard
-                  label="Recorded costs"
-                  value={formatTsh(analytics.totalRecordedCosts)}
-                  detail="Costs dated in the selected period"
-                  icon={<TrendingDown className="h-4 w-4" />}
-                  accent="text-rose-600 bg-rose-50"
-                  explanation="Trip and service expenses recorded in this date range. Completed trips use their saved final costs."
-                />
-              </div>
-            </AdminSummaryDropdown>
-
-            <div className={`rounded-xl border p-3 shadow-sm transition-colors ${
-              isReportPeriodFiltered
-                ? 'border-amber-300 bg-amber-50/60'
-                : 'border-slate-200 bg-white'
-            }`}>
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-xs font-bold text-slate-900">Report period</h2>
-                    {isReportPeriodFiltered && (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-800">
-                        Filter active
-                      </span>
-                    )}
+          <section aria-label="Report filters and overview summary" className="space-y-3">
+            <div ref={filtersRef}>
+              <button
+                type="button"
+                aria-expanded={isFiltersOpen}
+                aria-controls="admin-report-filters"
+                onClick={() => setIsFiltersOpen((open) => !open)}
+                className={`flex w-full items-center justify-between rounded-lg border px-3 py-1.5 text-left text-xs font-bold shadow-sm transition-colors ${
+                  activeFilterLabel
+                    ? 'border-amber-300 bg-amber-50/60 text-amber-900'
+                    : 'border-slate-200 bg-white text-slate-800'
+                }`}
+              >
+                <span>Filters</span>
+                <span className={`max-w-[70%] truncate rounded-full px-2 py-0.5 text-[9px] font-bold ${
+                  activeFilterLabel ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-500'
+                }`}>
+                  {activeFilterLabel || 'None active'}
+                </span>
+              </button>
+              <div
+                id="admin-report-filters"
+                aria-hidden={!isFiltersOpen}
+                inert={!isFiltersOpen}
+                className={`grid transition-[grid-template-rows,opacity] duration-200 ease-in-out motion-reduce:transition-none ${
+                  isFiltersOpen ? 'mt-2 grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                }`}
+              >
+                <div className="min-h-0 overflow-hidden">
+                  <div className={`rounded-xl border p-3 shadow-sm transition-colors ${
+                    isReportPeriodFiltered || filter !== 'All'
+                      ? 'border-amber-300 bg-amber-50/60'
+                      : 'border-slate-200 bg-white'
+                  }`}>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div>
+                        <h2 className="text-xs font-bold text-slate-900">Report period</h2>
+                        <p className={`mt-0.5 text-[10px] ${isReportPeriodFiltered ? 'text-amber-800' : 'text-slate-500'}`}>
+                          {reportPeriodLabel}
+                        </p>
+                      </div>
+                      <BarChart3 className={`h-4 w-4 shrink-0 ${isReportPeriodFiltered ? 'text-amber-700' : 'text-amber-500'}`} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="col-span-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:col-span-1">
+                        Period
+                        <select
+                          value={datePreset}
+                          onChange={(event) => setDatePreset(event.target.value as DatePreset)}
+                          aria-label="Filter report by date period"
+                          className={`mt-1 block w-full rounded-lg border px-2.5 py-2 text-xs font-semibold normal-case tracking-normal text-slate-700 ${
+                            isReportPeriodFiltered ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-white'
+                          }`}
+                        >
+                          <option value="today">Today</option>
+                          <option value="all">All time</option>
+                          <option value="30d">Last 30 days</option>
+                          <option value="90d">Last 90 days</option>
+                          <option value="ytd">This year</option>
+                          <option value="custom">Custom range</option>
+                        </select>
+                      </label>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        Trip status
+                        <select
+                          value={filter}
+                          onChange={(event) => setFilter(event.target.value as LedgerFilter)}
+                          aria-label="Filter report by trip status"
+                          className={`mt-1 block w-full rounded-lg border px-2.5 py-2 text-xs font-semibold normal-case tracking-normal text-slate-700 ${
+                            filter !== 'All' ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-white'
+                          }`}
+                        >
+                          <option value="All">All statuses</option>
+                          <option value="Completed">Completed</option>
+                          <option value="Ongoing">Ongoing</option>
+                          <option value="Planned">Planned</option>
+                        </select>
+                      </label>
+                      {datePreset === 'custom' && (
+                        <>
+                          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                            From
+                            <input type="date" value={customFrom} onChange={(event) => setCustomFrom(event.target.value)} aria-label="Report start date" className="mt-1 block w-full rounded-lg border border-slate-200 px-2 py-2 text-xs font-medium normal-case tracking-normal text-slate-700" />
+                          </label>
+                          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                            To
+                            <input type="date" value={customTo} onChange={(event) => setCustomTo(event.target.value)} aria-label="Report end date" className="mt-1 block w-full rounded-lg border border-slate-200 px-2 py-2 text-xs font-medium normal-case tracking-normal text-slate-700" />
+                          </label>
+                        </>
+                      )}
+                    </div>
+                    {rangeIsInvalid && <p role="alert" className="mt-2 text-[11px] font-semibold text-rose-700">Start date must be on or before end date.</p>}
                   </div>
-                  <p className={`mt-0.5 text-[10px] ${isReportPeriodFiltered ? 'text-amber-800' : 'text-slate-500'}`}>
-                    {reportPeriodLabel}
-                  </p>
                 </div>
-                <BarChart3 className={`h-4 w-4 shrink-0 ${isReportPeriodFiltered ? 'text-amber-700' : 'text-amber-500'}`} />
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <label className="col-span-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:col-span-1">
-                  Period
-                  <select
-                    value={datePreset}
-                    onChange={(event) => setDatePreset(event.target.value as DatePreset)}
-                    aria-label="Filter report by date period"
-                    className={`mt-1 block w-full rounded-lg border px-2.5 py-2 text-xs font-semibold normal-case tracking-normal text-slate-700 ${
-                      isReportPeriodFiltered ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-white'
-                    }`}
-                  >
-                    <option value="today">Today</option>
-                    <option value="all">All time</option>
-                    <option value="30d">Last 30 days</option>
-                    <option value="90d">Last 90 days</option>
-                    <option value="ytd">This year</option>
-                    <option value="custom">Custom range</option>
-                  </select>
-                </label>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  Trip status
-                  <select
-                    value={filter}
-                    onChange={(event) => setFilter(event.target.value as LedgerFilter)}
-                    aria-label="Filter report by trip status"
-                    className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold normal-case tracking-normal text-slate-700"
-                  >
-                    <option value="All">All statuses</option>
-                    <option value="Completed">Completed</option>
-                    <option value="Ongoing">Ongoing</option>
-                    <option value="Planned">Planned</option>
-                  </select>
-                </label>
-                {datePreset === 'custom' && (
-                  <>
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                      From
-                      <input type="date" value={customFrom} onChange={(event) => setCustomFrom(event.target.value)} aria-label="Report start date" className="mt-1 block w-full rounded-lg border border-slate-200 px-2 py-2 text-xs font-medium normal-case tracking-normal text-slate-700" />
-                    </label>
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                      To
-                      <input type="date" value={customTo} onChange={(event) => setCustomTo(event.target.value)} aria-label="Report end date" className="mt-1 block w-full rounded-lg border border-slate-200 px-2 py-2 text-xs font-medium normal-case tracking-normal text-slate-700" />
-                    </label>
-                  </>
-                )}
-              </div>
-              {rangeIsInvalid && <p role="alert" className="mt-2 text-[11px] font-semibold text-rose-700">Start date must be on or before end date.</p>}
             </div>
+
+            {activeSection === 'overview' && (
+              <AdminSummaryDropdown
+                id="admin-financial-summary-cards"
+                label="Financial Summary"
+                openOnLargeScreens
+              >
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <MetricCard
+                    label="Cash collected"
+                    value={formatTsh(analytics.collectedCash)}
+                    detail="Payments received during these dates"
+                    icon={<Wallet className="h-4 w-4" />}
+                    accent="text-emerald-600 bg-emerald-50"
+                    explanation="Money actually received during this date range for trips in the selected status filter."
+                  />
+                  <MetricCard
+                    label="Outstanding balance"
+                    value={formatTsh(analytics.outstandingBalance)}
+                    detail="Current unpaid on invoices issued in period"
+                    icon={<Receipt className="h-4 w-4" />}
+                    accent="text-amber-600 bg-amber-50"
+                    explanation="What is still owed today on invoices issued during this date range."
+                  />
+                  <MetricCard
+                    label="Invoiced"
+                    value={formatTsh(analytics.invoicedAmount)}
+                    detail={`${analytics.reportInvoices.length} invoice${analytics.reportInvoices.length === 1 ? '' : 's'} issued in period`}
+                    icon={<FileText className="h-4 w-4" />}
+                    accent="text-blue-600 bg-blue-50"
+                    explanation="The total value of invoices issued during this date range."
+                  />
+                  <MetricCard
+                    label="Recorded costs"
+                    value={formatTsh(analytics.totalRecordedCosts)}
+                    detail="Costs dated in the selected period"
+                    icon={<TrendingDown className="h-4 w-4" />}
+                    accent="text-rose-600 bg-rose-50"
+                    explanation="Trip and service expenses recorded in this date range. Completed trips use their saved final costs."
+                  />
+                </div>
+              </AdminSummaryDropdown>
+            )}
           </section>
 
           <AdminPriorityWarnings
