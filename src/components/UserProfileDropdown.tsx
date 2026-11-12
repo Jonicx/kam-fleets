@@ -69,7 +69,7 @@ export const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({
               className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
             >
               <Settings className="h-4 w-4 mr-3 text-slate-400" />
-              Profile Settings
+              Settings
             </button>
             <button
               onClick={() => {

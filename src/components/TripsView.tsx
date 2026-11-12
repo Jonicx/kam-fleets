@@ -80,10 +80,10 @@ export const TripsView: React.FC<TripsViewProps> = ({
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center space-x-2">
             <span>Trip Operations &amp; Dispatch</span>
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
-              {trips.length} Total
+              {trips.length}
             </span>
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 mobile-explanation mt-0.5">
             Manage scheduled haulage journeys, real-time status transitions, dynamic delay reports, and expenditure
           </p>
         </div>
@@ -93,13 +93,13 @@ export const TripsView: React.FC<TripsViewProps> = ({
           className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold transition shadow-sm self-start sm:self-auto"
         >
           <Plus className="h-4 w-4" />
-          <span>Plan &amp; Schedule New Trip</span>
+          <span>Plan New Trip</span>
         </button>
       </div>
 
-      <details className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xs">
-        <summary className="cursor-pointer text-xs font-bold text-slate-700">What do budget estimate and variance mean?</summary>
-        <p className="mobile-explanation mt-2 text-xs leading-relaxed text-slate-600">
+      <details className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xs ">
+        <summary className="cursor-pointer text-xs font-bold text-slate-700">Budget estimate and variance?</summary>
+        <p className=" mt-2 text-xs leading-relaxed text-slate-600">
           The budget estimate is the planned amount for a trip. For completed trips, budget variance is the estimate minus finalized trip costs. It shows whether recorded costs were under or over budget; it is not customer revenue or profit.
         </p>
       </details>

@@ -114,10 +114,10 @@ export const DriversView: React.FC<DriversViewProps> = ({
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center space-x-2">
             <span>Drivers Directory</span>
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
-              {drivers.length} Drivers
+              {drivers.length}
             </span> 
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs mobile-explanation text-slate-500 mt-0.5">
             Commercial heavy haulage drivers, license tracking, and duty assignments
           </p>
         </div>

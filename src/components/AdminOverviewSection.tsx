@@ -99,7 +99,7 @@ export const AdminOverviewSection: React.FC<AdminOverviewSectionProps> = ({
           <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h2 className="text-sm font-bold text-slate-900">Monthly financial trend</h2>
-              <p className="mt-1 text-xs text-slate-500">Invoiced, cash collected, and recorded costs · last 6 months</p>
+              <p className="mt-1 text-xs text-slate-500 mobile-explanation ">Invoiced, cash collected, and recorded costs · last 6 months</p>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600 sm:mt-0">
               {showBudgetInChart && <span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-slate-400" />Budget estimate</span>}

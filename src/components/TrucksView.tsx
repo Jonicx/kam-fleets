@@ -244,10 +244,10 @@ export const TrucksView: React.FC<TrucksViewProps> = ({
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center space-x-2">
             <span>Fleet Trucks Management</span>
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
-              {trucks.length} Units
+              {trucks.length}
             </span>
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 mobile-explanation mt-0.5">
             Heavy haulage vehicle inventory, availability state, and maintenance status tracking
           </p>
         </div>

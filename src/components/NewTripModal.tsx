@@ -277,9 +277,6 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
               <Navigation2 className="h-5 w-5 text-amber-500 fill-current" />
               <span>Create &amp; Dispatch Trip</span>
             </h2>
-            <p className="text-xs text-slate-300 mt-0.5">
-              Launch trip route with assigned truck, driver pay, initial transit expenses, and launch maintenance parts.
-            </p>
           </div>
 
           <button
@@ -321,9 +318,6 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
               <div>
                 <label className="text-[11px] font-bold text-slate-700 block mb-1 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <span>Assigned Heavy Truck *</span>
-                  <span className="text-[10px] text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded font-semibold">
-                    Must be Available
-                  </span>
                 </label>
                 {availableTrucks.length === 0 ? (
                   <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs">
@@ -399,9 +393,7 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
               <div>
                 <label className="text-[11px] font-bold text-slate-700 block mb-1 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <span>Assigned Driver *</span>
-                  <span className="text-[10px] text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded font-semibold">
-                    Must be Available
-                  </span>
+
                 </label>
                 {availableDrivers.length === 0 ? (
                   <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs">
@@ -615,9 +607,6 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
               <div>
                 <label className="text-[11px] font-bold text-slate-800 block mb-1">
                   Budget Allocated (Tsh) *
-                  <span className="text-slate-400 font-normal block text-[10px]">
-                    Total revenue / operational capital allocated for this route
-                  </span>
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">Tsh</span>
@@ -626,7 +615,7 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
                     min="1"
                     step="1"
                     required
-                    placeholder="e.g. 3200.00"
+                    placeholder="0"
                     value={budgetAllocated}
                     onChange={(e) => setBudgetAllocated(e.target.value)}
                     className="w-full pl-10 pr-3 py-2 text-xs rounded-lg border border-slate-300 font-mono font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
@@ -636,10 +625,7 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
 
               <div>
                 <label className="text-[11px] font-bold text-slate-800 block mb-1">
-                  Driver Pay specifically for this trip instance (Tsh) *
-                  <span className="text-slate-400 font-normal block text-[10px]">
-                    Contract compensation payable to the driver
-                  </span>
+                  Driver Pay(Tsh) *
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">Tsh</span>
@@ -648,7 +634,7 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
                     min="0"
                     step="1"
                     required
-                    placeholder="e.g. 450.00"
+                    placeholder="0"
                     value={driverPay}
                     onChange={(e) => setDriverPay(e.target.value)}
                     className="w-full pl-10 pr-3 py-2 text-xs rounded-lg border border-slate-300 font-mono font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
@@ -702,7 +688,7 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
                   <Receipt className="h-4 w-4 hidden sm:flex text-blue-600" />
                   <span>4. Initial Launch Expenses (Optional)</span>
                 </h3>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] mobile-explanation text-slate-500">
                   Pre-departure disbursements: Fuel, Tolls advance, Police/Checkpoints, Food, Other
                 </p>
               </div>
@@ -792,7 +778,7 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
                   <Wrench className="h-4 w-4 hidden sm:flex text-orange-600" />
                   <span>5. Initial Spare Parts Needed at Launch (Optional)</span>
                 </h3>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] mobile-explanation text-slate-500">
                   Pre-departure vehicle maintenance replacements (e.g. drive axle tire, fan belt, oil filter)
                 </p>
               </div>

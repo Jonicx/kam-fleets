@@ -58,6 +58,66 @@ function FleetTripManagerApp() {
   );
   const [adminSectionRequest, setAdminSectionRequest] = useState<{ section: 'billing' | 'review'; version: number } | undefined>();
 
+  useEffect(() => {
+    const body = document.body;
+    let isLocked = false;
+    let scrollY = 0;
+    let previousStyles: Pick<CSSStyleDeclaration, 'overflow' | 'position' | 'top' | 'left' | 'right' | 'width' | 'paddingRight'>;
+
+    const syncScrollLock = () => {
+      const hasModal = document.querySelector('[aria-modal="true"]') !== null;
+      if (hasModal === isLocked) return;
+
+      if (hasModal) {
+        scrollY = window.scrollY;
+        previousStyles = {
+          overflow: body.style.overflow,
+          position: body.style.position,
+          top: body.style.top,
+          left: body.style.left,
+          right: body.style.right,
+          width: body.style.width,
+          paddingRight: body.style.paddingRight,
+        };
+        body.style.overflow = 'hidden';
+        body.style.position = 'fixed';
+        body.style.top = `-${scrollY}px`;
+        body.style.left = '0';
+        body.style.right = '0';
+        body.style.width = '100%';
+        body.style.paddingRight = `${window.innerWidth - document.documentElement.clientWidth}px`;
+        isLocked = true;
+        return;
+      }
+
+      Object.assign(body.style, previousStyles);
+      isLocked = false;
+      window.scrollTo(0, scrollY);
+    };
+
+    const observer = new MutationObserver(syncScrollLock);
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ['aria-modal'],
+      childList: true,
+      subtree: true,
+    });
+    syncScrollLock();
+
+    return () => {
+      observer.disconnect();
+      if (isLocked) {
+        Object.assign(body.style, previousStyles);
+        window.scrollTo(0, scrollY);
+      }
+    };
+  }, []);
+
+  const navigateToTab = (tab: string) => {
+    setActiveTab(tab);
+    window.scrollTo(0, 0);
+  };
+
   const handleSignOut = async () => {
     clearCachedOfflineSession();
     try {
@@ -117,14 +177,14 @@ function FleetTripManagerApp() {
 
   useEffect(() => {
     if (!notificationFocusId) return;
-    setActiveTab('admin');
+    navigateToTab('admin');
     const url = new URL(window.location.href);
     url.searchParams.delete('notification');
     window.history.replaceState({}, '', url);
   }, [notificationFocusId]);
 
   const handleNotificationOpen = (notification: AdminNotification) => {
-    setActiveTab('admin');
+    navigateToTab('admin');
     setNotificationFocusId(null);
     if (notification.entity_type === 'team_member') {
       setAdminSectionRequest((current) => ({ section: 'review', version: (current?.version ?? 0) + 1 }));
@@ -140,7 +200,7 @@ function FleetTripManagerApp() {
       {/* Navigation Header */}
       <Navbar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={navigateToTab}
         stats={stats}
         onResetDb={() => setShowResetConfirm(true)}
         onOpenNewTripModal={() => setShowNewTripModal(true)}
@@ -178,7 +238,7 @@ function FleetTripManagerApp() {
             onSelectTrip={(id) => setSelectedTripId(id)}
             onOpenUpdateModal={(id) => setUpdatingTripId(id)}
             onOpenNewTrip={() => setShowNewTripModal(true)}
-            onNavigateToSchema={() => setActiveTab('schema')}
+            onNavigateToSchema={() => navigateToTab('schema')}
           />
         )}
 
@@ -349,6 +409,7 @@ function FleetTripManagerApp() {
           userName={userName}
           userEmail={userEmail}
           profilePictureId={profilePictureId}
+          userRole={userRole}
           onSave={async (data) => {
             try {
               await updateCurrentUser({

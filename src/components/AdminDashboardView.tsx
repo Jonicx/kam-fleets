@@ -712,7 +712,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Admin Dashboard</h1>
           </div>
           <div className="flex-col flex-wrap items-center gap-3">
-            <p className="mt-1 mb-2 max-w-2xl text-sm leading-relaxed text-slate-200/90">
+            <p className="mt-1 mobile-explanation mb-2 max-w-2xl text-sm leading-relaxed text-slate-200/90">
               Trace budgets, invoices, received payments, operational costs, and every recorded change back to its source.
             </p>
             <div className="flex items-center gap-2 rounded-xl border justify-between border-white/10 bg-white/5 px-2  py-2 text-xs text-slate-200">
@@ -1153,8 +1153,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 <p role="alert" className="px-4 py-2 text-xs text-rose-700">{auditLoadError}</p>
               )}
             </div>
-            <p className="border-t border-slate-100 px-4 py-3 text-[10px] leading-relaxed text-slate-500 sm:px-5">
-              Audit events are immutable and do not expire automatically. The workspace loads the latest 2,000; use "Load older retained activity" to browse earlier events.
+            <p className="border-t mobile-explanation border-slate-100 px-4 py-3 text-[10px] leading-relaxed text-slate-500 sm:px-5">
+              Audit events are immutable and do not expire automatically. The workspace loads the latest 2,000;
             </p>
         </div>
 
