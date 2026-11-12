@@ -53,6 +53,7 @@ interface AdminDashboardViewProps {
     total: number;
     hasMore: boolean;
   }>;
+  sectionRequest?: { section: DashboardSection; version: number };
 }
 
 type LedgerFilter = 'All' | EnrichedTrip['status'];
@@ -94,6 +95,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   onVoidInvoice,
   onReversePayment,
   onLoadOlderAuditLogs,
+  sectionRequest,
 }) => {
   const invoices = useMemo(() => allInvoices.filter((invoice) => !invoice.voided_at), [allInvoices]);
   const payments = useMemo(() => allPayments.filter((payment) => !payment.reversed_at), [allPayments]);
@@ -155,6 +157,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       document.removeEventListener('keydown', closeOnEscape);
     };
   }, []);
+
+  useEffect(() => {
+    if (sectionRequest) setActiveSection(sectionRequest.section);
+  }, [sectionRequest]);
 
   useEffect(() => {
     const now = new Date();
@@ -899,14 +905,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             )}
           </section>
 
-          <AdminPriorityWarnings
-            issues={dataQualityIssues}
-            onShowAll={() => {
-              setShowAllWarnings(true);
-              setActiveSection('review');
-            }}
-            onSelectTrip={onSelectTrip}
-          />
+          {activeSection === 'billing' && (
+            <AdminPriorityWarnings
+              issues={dataQualityIssues}
+              onShowAll={() => {
+                setShowAllWarnings(true);
+                setActiveSection('review');
+              }}
+              onSelectTrip={onSelectTrip}
+            />
+          )}
 
       {activeSection === 'overview' && (
         <AdminOverviewSection
@@ -995,7 +1003,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-sm font-bold text-slate-900">Cost reconciliation</h2>
-              <p className="mt-1 text-xs text-slate-500">Trace the filtered cost total to its source records.</p>
+              <p className="mobile-explanation mt-1 text-xs text-slate-500">Trace the filtered cost total to its source records.</p>
             </div>
             <span className="whitespace-nowrap text-sm font-extrabold text-slate-900">{formatTsh(analytics.totalRecordedCosts)}</span>
           </div>
@@ -1031,7 +1039,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 ))}
             </div>
           </details>
-          <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+          <p className="mobile-explanation mt-3 text-[11px] leading-relaxed text-slate-500">
             A completed trip uses its saved final expense/parts snapshots; an open trip uses itemized records dated in this period. Driver pay counts only after completion. Fleet servicing remains unallocated.
           </p>
         </div>

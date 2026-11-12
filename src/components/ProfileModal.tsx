@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Mail, Phone, User as UserIcon } from 'lucide-react';
 import { PROFILE_PICTURES } from '../constants/profilePictures.ts';
+import { useModalAccessibility } from '../hooks/useModalAccessibility.ts';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [email, setEmail] = useState(userEmail);
   const [phone, setPhone] = useState(userPhone);
   const [selectedPictureId, setSelectedPictureId] = useState(profilePictureId || PROFILE_PICTURES[0].id);
+  const dialogRef = useModalAccessibility(onClose, isOpen);
 
   if (!isOpen) return null;
 
@@ -35,10 +37,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="profile-modal-title" tabIndex={-1} className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-200">
-          <h2 className="text-xl font-bold text-slate-900">Profile Settings</h2>
+          <h2 id="profile-modal-title" className="text-xl font-bold text-slate-900">Profile Settings</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-slate-100 rounded-lg transition-colors"

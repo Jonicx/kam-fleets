@@ -179,7 +179,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
             <Receipt className="h-4 w-4 text-blue-600" />
             <div>
               <h2 className="text-sm font-bold text-slate-900">Invoices and cash receipts</h2>
-              <p className="mt-1 text-xs text-slate-500">Issue invoices for ongoing or completed trips and record partial or full payments.</p>
+              <p className="mobile-explanation mt-1 text-xs text-slate-500">Issue invoices for ongoing or completed trips and record partial or full payments.</p>
             </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -270,7 +270,7 @@ export const AdminBillingSection: React.FC<AdminBillingSectionProps> = ({
               </tbody>
             </table>
           </div>
-          <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+          <p className="mobile-explanation mt-2 text-[11px] leading-relaxed text-slate-500">
             Outstanding is the current unpaid balance for invoices issued in the selected period. Collections are payments received within the selected period.
           </p>
           <details className="mt-3 rounded-lg border border-slate-100">

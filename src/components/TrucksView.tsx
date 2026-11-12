@@ -15,6 +15,7 @@ import {
 import { EnrichedTrip, Truck, TruckServiceRecord, TruckServiceType, TruckStatus } from '../types/database.ts';
 import { formatTsh } from '../utils/currency.ts';
 import { canEditTruckServiceRecord } from '../utils/truckService.ts';
+import { useModalAccessibility } from '../hooks/useModalAccessibility.ts';
 
 interface TrucksViewProps {
   trucks: Truck[];
@@ -49,6 +50,9 @@ export const TrucksView: React.FC<TrucksViewProps> = ({
   const [statusFilter, setStatusFilter] = useState<'All' | TruckStatus>('All');
   const [showAddModal, setShowAddModal] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [deleteCandidate, setDeleteCandidate] = useState<Truck | null>(null);
+  const addModalRef = useModalAccessibility(() => setShowAddModal(false), showAddModal);
+  const deleteModalRef = useModalAccessibility(() => setDeleteCandidate(null), Boolean(deleteCandidate));
   const [serviceTruckId, setServiceTruckId] = useState<string | null>(null);
   const [showServiceForm, setShowServiceForm] = useState(false);
   const [editingServiceRecordId, setEditingServiceRecordId] = useState<string | null>(null);
@@ -121,8 +125,10 @@ export const TrucksView: React.FC<TrucksViewProps> = ({
     setErrorMsg(null);
     try {
       onDeleteTruck(id);
+      return true;
     } catch (err: any) {
       setErrorMsg(err.message);
+      return false;
     }
   };
 
@@ -327,12 +333,17 @@ export const TrucksView: React.FC<TrucksViewProps> = ({
                 )}
                 <button type="button" onClick={() => openServiceModal(truck.id, false)} className="rounded-lg px-2.5 py-2 text-xs font-semibold transition bg-slate-100 text-slate-700 hover:bg-slate-200">History</button>
                 <button type="button" onClick={() => openEditTruck(truck)} className="rounded-lg px-2.5 py-2 text-xs font-semibold transition bg-slate-100 text-slate-700 hover:bg-slate-200">Edit</button>
-                <button type="button" onClick={() => handleDelete(truck.id)} aria-label={`Delete ${truck.license_plate}`} className="ml-auto rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600">
+                <button type="button" onClick={() => { setErrorMsg(null); setDeleteCandidate(truck); }} aria-label={`Delete ${truck.license_plate}`} className="ml-auto rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             </li>
           ))}
+          {filteredTrucks.length === 0 && (
+            <li role="status" className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-600">
+              {trucks.length ? 'No trucks match the current search or status filter.' : 'No trucks have been added yet.'}
+            </li>
+          )}
         </ul>
         <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[960px] text-left text-[13px] text-slate-600 md:min-w-0 md:text-xs">
@@ -416,7 +427,9 @@ export const TrucksView: React.FC<TrucksViewProps> = ({
                         <Pencil className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => handleDelete(truck.id)}
+                        type="button"
+                        onClick={() => { setErrorMsg(null); setDeleteCandidate(truck); }}
+                        aria-label={`Delete ${truck.license_plate}`}
                         title="Delete Truck (Protected by FK ON DELETE RESTRICT)"
                         className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
                       >
@@ -426,6 +439,11 @@ export const TrucksView: React.FC<TrucksViewProps> = ({
                   </td>
                 </tr>
               ))}
+              {filteredTrucks.length === 0 && (
+                <tr><td colSpan={6} role="status" className="px-4 py-10 text-center text-sm text-slate-500">
+                  {trucks.length ? 'No trucks match the current search or status filter.' : 'No trucks have been added yet.'}
+                </td></tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -434,11 +452,11 @@ export const TrucksView: React.FC<TrucksViewProps> = ({
       {/* Add Truck Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-start justify-center p-3 sm:items-start sm:p-4">
-          <div className="modal-readable bg-white w-full max-w-md rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+          <div ref={addModalRef} role="dialog" aria-modal="true" aria-labelledby="truck-form-title" tabIndex={-1} className="modal-readable bg-white w-full max-w-md rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
             <div className="bg-slate-900 text-white p-4 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <TruckIcon className="h-4 w-4 text-amber-500" />
-                <h3 className="text-sm font-bold">{editingTruckId ? 'Edit Fleet Truck' : 'Register New Fleet Truck'}</h3>
+                <h3 id="truck-form-title" className="text-sm font-bold">{editingTruckId ? 'Edit Fleet Truck' : 'Register New Fleet Truck'}</h3>
               </div>
               <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-white">
                 <X className="h-4 w-4" />
@@ -824,6 +842,19 @@ export const TrucksView: React.FC<TrucksViewProps> = ({
               </section>
             </div>
           </div>
+        </div>
+      )}
+      {deleteCandidate && (
+        <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-slate-950/60 p-4">
+          <section ref={deleteModalRef} role="dialog" aria-modal="true" aria-labelledby="truck-delete-title" tabIndex={-1} className="my-auto w-full max-w-sm rounded-xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <h2 id="truck-delete-title" className="text-sm font-bold text-slate-900">Delete {deleteCandidate.license_plate}?</h2>
+            <p className="mobile-explanation mt-2 text-xs leading-relaxed text-slate-600">Trucks assigned to trips or with service records cannot be deleted.</p>
+            {errorMsg && <p role="alert" className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">{errorMsg}</p>}
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setDeleteCandidate(null)} className="rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100">Cancel</button>
+              <button type="button" onClick={() => { if (handleDelete(deleteCandidate.id)) setDeleteCandidate(null); }} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white hover:bg-rose-500">Delete truck</button>
+            </div>
+          </section>
         </div>
       )}
     </div>

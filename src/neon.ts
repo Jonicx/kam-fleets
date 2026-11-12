@@ -2,6 +2,7 @@ import { createAuthClient } from '@neondatabase/auth';
 import type { DatabaseSnapshot } from './db/store.ts';
 import type { AppRole } from './db/domain.ts';
 import type { AuditLog } from './types/database.ts';
+import type { AdminNotification } from './types/notifications.ts';
 
 const neonAuthUrl = import.meta.env.VITE_NEON_AUTH_URL;
 if (!neonAuthUrl) {
@@ -19,6 +20,7 @@ export interface TeamMember {
   role: AppRole;
   status: 'active' | 'invited' | 'suspended';
   active?: boolean;
+  pending?: boolean;
   createdAt?: string;
   profilePictureId?: string;
 }
@@ -208,3 +210,44 @@ export async function fetchOlderAuditLogs(cursor: { id: string } | null) {
   }
   return { logs, total: body.total, hasMore: body.hasMore };
 }
+
+export const notificationsBackend = {
+  async list(): Promise<AdminNotification[]> {
+    const body = await apiRequest<{ notifications: AdminNotification[] }>('notifications');
+    if (!Array.isArray(body.notifications)) throw new Error('Neon Function returned an invalid notifications response.');
+    return body.notifications;
+  },
+
+  async markRead(id: string, read: boolean) {
+    await apiRequest<{ ok: boolean }>(`notifications/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ read }),
+    });
+  },
+
+  async markAllRead() {
+    await apiRequest<{ ok: boolean }>('notifications/read-all', { method: 'PATCH', body: '{}' });
+  },
+
+  async getPushPublicKey(): Promise<string | null> {
+    const body = await apiRequest<{ publicKey: string | null }>('notifications/push-key');
+    if (body.publicKey !== null && typeof body.publicKey !== 'string') {
+      throw new Error('Neon Function returned an invalid push key.');
+    }
+    return body.publicKey;
+  },
+
+  async savePushSubscription(subscription: PushSubscriptionJSON) {
+    await apiRequest<{ ok: boolean }>('notifications/push-subscriptions', {
+      method: 'PUT',
+      body: JSON.stringify(subscription),
+    });
+  },
+
+  async removePushSubscription(endpoint: string) {
+    await apiRequest<{ ok: boolean }>('notifications/push-subscriptions', {
+      method: 'DELETE',
+      body: JSON.stringify({ endpoint }),
+    });
+  },
+};

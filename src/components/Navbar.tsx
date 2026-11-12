@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { DatabaseStats } from '../types/database.ts';
 import { UserProfileDropdown } from './UserProfileDropdown.tsx';
+import { NotificationCenter } from './NotificationCenter.tsx';
+import type { AdminNotification } from '../types/notifications.ts';
 import { GREETINGS } from '../constants/profilePictures.ts';
 
 interface NavbarProps {
@@ -25,6 +27,8 @@ interface NavbarProps {
   profilePictureId?: string;
   onSignOut?: () => void;
   onOpenProfile?: () => void;
+  notificationFocusId?: string | null;
+  onOpenNotification?: (notification: AdminNotification) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -40,6 +44,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   profilePictureId,
   onSignOut,
   onOpenProfile,
+  notificationFocusId,
+  onOpenNotification,
 }) => {
   const [greeting, setGreeting] = useState(GREETINGS[0]);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
@@ -213,6 +219,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
 
           <div className="flex items-center space-x-2">
+            {isAdmin && onOpenNotification && (
+              <NotificationCenter
+                focusNotificationId={notificationFocusId}
+                onOpenNotification={onOpenNotification}
+              />
+            )}
             {onSignOut && onOpenProfile && (
               <UserProfileDropdown
                 userName={userName}

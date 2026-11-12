@@ -29,6 +29,7 @@ import {
   SparePart,
 } from '../types/database.ts';
 import { formatTsh } from '../utils/currency.ts';
+import { useModalAccessibility } from '../hooks/useModalAccessibility.ts';
 import { getDelaySeverityClasses } from '../utils/delaySeverity.ts';
 
 interface UpdateTripModalProps {
@@ -80,6 +81,7 @@ export const UpdateTripModal: React.FC<UpdateTripModalProps> = ({
   onAddSparePart,
   onDeleteSparePart,
 }) => {
+  const dialogRef = useModalAccessibility(onClose);
   const [activeConsoleTab, setActiveConsoleTab] = useState<'expenses' | 'spares' | 'delays' | 'history'>('expenses');
   const [historyFilter, setHistoryFilter] = useState<'all' | 'expense' | 'spare_part' | 'delay'>('all');
 
@@ -336,12 +338,12 @@ export const UpdateTripModal: React.FC<UpdateTripModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex items-start justify-center p-3 sm:items-start sm:p-4">
-      <div className="modal-readable bg-white w-full max-w-5xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="update-trip-modal-title" tabIndex={-1} className="modal-readable bg-white w-full max-w-5xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
         {/* Top Header */}
         <div className="bg-slate-900 text-white p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800">
           <div>
 
-            <h2 className="text-lg sm:text-2xl font-extrabold tracking-tight mb-2.5 flex items-center space-x-2 text-white">
+            <h2 id="update-trip-modal-title" className="text-lg sm:text-2xl font-extrabold tracking-tight mb-2.5 flex items-center space-x-2 text-white">
               <span>{trip.origin}</span>
               <span className="text-gray-400 font-bold">→</span>
               <span>{trip.destination}</span>

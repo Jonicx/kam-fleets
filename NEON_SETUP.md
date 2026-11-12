@@ -26,6 +26,9 @@ Configure these on the deployed `hello.ts` Function:
 - `NEON_AUTH_BASE_URL` — branch Auth URL used as the JWT issuer.
 - `NEON_AUTH_JWKS_URL` — branch JWKS endpoint used to verify JWT signatures.
 - `APP_ALLOWED_ORIGINS` — comma-separated production frontend origins.
+- `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` — server-side Web
+  Push credentials. Keep the private key out of browser variables and source
+  control. `VAPID_SUBJECT` should be a contact URI such as `mailto:admin@example.com`.
 
 The Function allows localhost origins for development. Production origins must
 be explicitly listed.
@@ -81,6 +84,38 @@ The runner applies ordered files once and tracks checksums in
 numbered migration. See [`DATABASE_ARCHITECTURE.md`](./DATABASE_ARCHITECTURE.md)
 for the current model and migration history. Apply migration 0008 before
 deploying a Function build that enforces the database-backed API limits.
+
+Migration 0011 adds notification state, push subscriptions, and delivery
+retries. Apply it before deploying the matching `hello.ts` Function.
+
+## Admin notification delivery
+
+The notification center stores account approvals, completed trips missing an
+invoice, active-trip delay reports, budget overruns, and overdue invoice
+balances in the database. Read state is per admin and shared across their
+devices. Push delivery requires HTTPS, browser permission, the VAPID Function
+environment values above, and a service worker registration.
+
+Generate a VAPID key pair with `npx web-push generate-vapid-keys`. Store the
+private key only in the Function environment. Set the public key and subject
+there as well; the Function returns the public key only to authenticated
+admins. The app does not receive or store the private key.
+
+After deploying the Function, create a Neon schedule trigger to retry queued
+push deliveries every minute:
+
+```bash
+neon triggers create --function-slug hello \
+  --name admin-notification-delivery \
+  --cron '*/1 * * * *' \
+  --function-path /cron/notifications
+```
+
+The trigger handler verifies Neon’s signed delivery metadata with
+`parseTriggerDelivery`; it does not accept a browser JWT or a shared secret.
+The deployment URL, migration target, VAPID keys, and trigger must be configured
+for the same Neon branch. No migration or function deployment is performed by
+the frontend build.
 
 ## API rate limits
 

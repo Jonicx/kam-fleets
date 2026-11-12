@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { AlertCircle, Navigation2, X } from 'lucide-react';
 import { Client, Driver, EnrichedTrip, Trip, Truck } from '../types/database.ts';
 import { toLocalDateTimeInput } from '../utils/dateInput.ts';
+import { useModalAccessibility } from '../hooks/useModalAccessibility.ts';
 
 type TripDetailUpdates = Partial<Pick<Trip,
   'truck_id' | 'driver_id' | 'client_id' | 'origin' | 'destination' | 'scheduled_start' | 'scheduled_end' | 'budget_allocated' | 'driver_pay' | 'cargo_type' | 'notes'>>;
@@ -33,12 +34,7 @@ export const TripEditModal: React.FC<TripEditModalProps> = ({ trip, trucks, driv
   const [cargoType, setCargoType] = useState(trip.cargo_type || '');
   const [notes, setNotes] = useState(trip.notes || '');
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  const dialogRef = useModalAccessibility(onClose);
 
   const truckOptions = trucks.filter((truck) => truck.id === trip.truck_id || truck.status !== 'On Trip');
   const driverOptions = drivers.filter((driver) => driver.id === trip.driver_id || driver.status !== 'On Trip');
@@ -67,11 +63,11 @@ export const TripEditModal: React.FC<TripEditModalProps> = ({ trip, trucks, driv
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-start justify-center p-3 sm:items-start sm:p-4">
-      <div role="dialog" aria-modal="true" aria-label="Edit trip details" className="modal-readable bg-white w-full max-w-lg rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="edit-trip-title" tabIndex={-1} className="modal-readable bg-white w-full max-w-lg rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
         <div className="bg-slate-900 text-white p-4 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Navigation2 className="h-4 w-4 text-amber-500" />
-            <h3 className="text-sm font-bold">Edit Trip Details</h3>
+            <h3 id="edit-trip-title" className="text-sm font-bold">Edit Trip Details</h3>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="text-slate-400 hover:text-white">
             <X className="h-4 w-4" />

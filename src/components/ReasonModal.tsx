@@ -1,5 +1,6 @@
 import React, { FormEvent, useState } from 'react';
 import { X } from 'lucide-react';
+import { useModalAccessibility } from '../hooks/useModalAccessibility.ts';
 
 interface ReasonModalProps {
   title: string;
@@ -12,6 +13,7 @@ interface ReasonModalProps {
 export const ReasonModal: React.FC<ReasonModalProps> = ({ title, description, confirmLabel, onConfirm, onClose }) => {
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
+  const dialogRef = useModalAccessibility(onClose);
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -29,8 +31,9 @@ export const ReasonModal: React.FC<ReasonModalProps> = ({ title, description, co
       role="dialog"
       aria-modal="true"
       aria-labelledby="reason-modal-title"
+      ref={dialogRef}
+      tabIndex={-1}
       className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-start justify-center p-3 sm:items-start sm:p-4"
-      onKeyDown={(event) => event.key === 'Escape' && onClose()}
     >
       <form onSubmit={submit} className="modal-readable bg-white rounded-2xl p-6 max-w-md w-full border border-slate-200 shadow-2xl space-y-4 relative">
         <button

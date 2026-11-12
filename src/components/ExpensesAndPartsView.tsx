@@ -362,7 +362,7 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
             {formatTsh(totalCombined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Total
           </span>
         </h1>
-        <p className="text-xs text-slate-500 mt-0.5">
+        <p className="mobile-explanation text-xs text-slate-500 mt-0.5">
           Audited breakdown of trip costs, including driver payments, fuel, tolls, food, roadside parts, and truck services
         </p>
       </div>

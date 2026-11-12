@@ -15,6 +15,7 @@ import { ProfileModal } from './components/ProfileModal.tsx';
 import { dbStore } from './db/store.ts';
 import { UserProvider, useUser } from './contexts/UserContext.tsx';
 import { fetchOlderAuditLogs, neonAuthClient, updateCurrentUser } from './neon.ts';
+import type { AdminNotification } from './types/notifications.ts';
 
 const AdminDashboardView = lazy(() =>
   import('./components/AdminDashboardView.tsx').then((module) => ({ default: module.AdminDashboardView })),
@@ -52,6 +53,10 @@ function FleetTripManagerApp() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetSuccessToast, setResetSuccessToast] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [notificationFocusId, setNotificationFocusId] = useState<string | null>(() =>
+    new URLSearchParams(window.location.search).get('notification'),
+  );
+  const [adminSectionRequest, setAdminSectionRequest] = useState<{ section: 'billing' | 'review'; version: number } | undefined>();
 
   const handleSignOut = async () => {
     clearCachedOfflineSession();
@@ -110,6 +115,26 @@ function FleetTripManagerApp() {
   const updatingTrip = updatingTripId ? dbStore.getEnrichedTrip(updatingTripId) : null;
   const editingTrip = editingTripId ? dbStore.getEnrichedTrip(editingTripId) : null;
 
+  useEffect(() => {
+    if (!notificationFocusId) return;
+    setActiveTab('admin');
+    const url = new URL(window.location.href);
+    url.searchParams.delete('notification');
+    window.history.replaceState({}, '', url);
+  }, [notificationFocusId]);
+
+  const handleNotificationOpen = (notification: AdminNotification) => {
+    setActiveTab('admin');
+    setNotificationFocusId(null);
+    if (notification.entity_type === 'team_member') {
+      setAdminSectionRequest((current) => ({ section: 'review', version: (current?.version ?? 0) + 1 }));
+    } else if (notification.entity_type === 'invoice') {
+      setAdminSectionRequest((current) => ({ section: 'billing', version: (current?.version ?? 0) + 1 }));
+    } else {
+      setSelectedTripId(notification.entity_id);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
       {/* Navigation Header */}
@@ -124,6 +149,8 @@ function FleetTripManagerApp() {
         profilePictureId={profilePictureId}
         onSignOut={handleSignOut}
         onOpenProfile={() => setShowProfileModal(true)}
+        notificationFocusId={notificationFocusId}
+        onOpenNotification={handleNotificationOpen}
         isSticky={activeTab !== 'admin'}
         isAdmin={isAdmin}
       />
@@ -171,6 +198,7 @@ function FleetTripManagerApp() {
             onVoidInvoice={(id, reason) => dbStore.voidInvoice(id, reason)}
             onReversePayment={(id, reason) => dbStore.reversePayment(id, reason)}
             onLoadOlderAuditLogs={fetchOlderAuditLogs}
+            sectionRequest={adminSectionRequest}
           />
         )}
 

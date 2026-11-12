@@ -64,7 +64,7 @@ export const AdminDataQualityPanel: React.FC<AdminDataQualityPanelProps> = ({
               No missing assignments, missing invoices or final calculations, overdue/overpaid invoices, or finalized-cost mismatches found in this report.
             </div>
           )}
-          <p className="mt-3 text-[10px] leading-relaxed text-slate-500">
+          <p className="mobile-explanation mt-3 text-[10px] leading-relaxed text-slate-500">
             These are review prompts, not automatic accounting corrections. Invoices are considered overdue against their due date and remaining balance.
           </p>
         </div>

@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { AlertCircle, Receipt, X } from 'lucide-react';
 import { EnrichedTrip, Expense, ExpenseType, SparePart } from '../types/database.ts';
 import { toLocalDateTimeInput } from '../utils/dateInput.ts';
+import { useModalAccessibility } from '../hooks/useModalAccessibility.ts';
 
 export type LedgerEntry =
   | { kind: 'expense'; record?: Expense }
@@ -44,12 +45,7 @@ export const LedgerEntryModal: React.FC<LedgerEntryModalProps> = ({ entry, trips
   const [replacedBy, setReplacedBy] = useState(part?.replaced_by || '');
   const [timestamp, setTimestamp] = useState(toLocalDateTimeInput(existing?.timestamp || new Date().toISOString()));
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  const dialogRef = useModalAccessibility(onClose);
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -79,11 +75,11 @@ export const LedgerEntryModal: React.FC<LedgerEntryModalProps> = ({ entry, trips
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-start justify-center p-3 sm:items-start sm:p-4">
-      <div role="dialog" aria-modal="true" aria-label={title} className="modal-readable bg-white w-full max-w-md rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="ledger-entry-title" tabIndex={-1} className="modal-readable bg-white w-full max-w-md rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
         <div className="bg-slate-900 text-white p-4 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Receipt className="h-4 w-4 text-amber-500" />
-            <h3 className="text-sm font-bold">{title}</h3>
+            <h3 id="ledger-entry-title" className="text-sm font-bold">{title}</h3>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="text-slate-400 hover:text-white">
             <X className="h-4 w-4" />

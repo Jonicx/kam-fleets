@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, Calendar, User, FileText, Activity } from 'lucide-react';
+import { useModalAccessibility } from '../hooks/useModalAccessibility.ts';
 
 interface AuditDetailModalProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ export const AuditDetailModal: React.FC<AuditDetailModalProps> = ({
   onClose,
   auditLog,
 }) => {
+  const dialogRef = useModalAccessibility(onClose, isOpen && Boolean(auditLog));
   if (!isOpen || !auditLog) return null;
 
   const parseDetails = (details: string) => {
@@ -43,12 +45,12 @@ export const AuditDetailModal: React.FC<AuditDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="audit-detail-title" tabIndex={-1} className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-slate-200 bg-slate-50">
           <div className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-blue-600" />
-            <h2 className="text-lg font-bold text-slate-900">Audit Log Details</h2>
+            <h2 id="audit-detail-title" className="text-lg font-bold text-slate-900">Audit Log Details</h2>
           </div>
           <button
             onClick={onClose}

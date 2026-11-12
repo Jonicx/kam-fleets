@@ -25,6 +25,7 @@ import {
   InitialSparePartInput,
 } from '../types/database.ts';
 import { formatTsh } from '../utils/currency.ts';
+import { useModalAccessibility } from '../hooks/useModalAccessibility.ts';
 
 interface NewTripModalProps {
   trucks: Truck[];
@@ -41,6 +42,7 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
   onClose,
   onCreateTrip,
 }) => {
+  const dialogRef = useModalAccessibility(onClose);
   // Available assets (filtering to prevent double-booking)
   const availableTrucks = trucks.filter((t) => t.status === 'Available');
   const availableDrivers = drivers.filter((d) => d.status === 'Available');
@@ -266,12 +268,12 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-start justify-center p-3 sm:items-start sm:p-4">
-      <div className="modal-readable bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="new-trip-modal-title" tabIndex={-1} className="modal-readable bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="bg-slate-900 text-white p-4 sm:p-5 flex items-start justify-between border-b border-slate-800">
           <div>
 
-            <h2 className="text-lg sm:text-xl font-extrabold tracking-tight flex items-center space-x-2">
+            <h2 id="new-trip-modal-title" className="text-lg sm:text-xl font-extrabold tracking-tight flex items-center space-x-2">
               <Navigation2 className="h-5 w-5 text-amber-500 fill-current" />
               <span>Create &amp; Dispatch Trip</span>
             </h2>

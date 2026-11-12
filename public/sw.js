@@ -1,5 +1,5 @@
-const CACHE_NAME = 'kam-fleets-shell-v4';
-const RUNTIME_CACHE = 'kam-fleets-runtime-v4';
+const CACHE_NAME = 'kam-fleets-shell-v5';
+const RUNTIME_CACHE = 'kam-fleets-runtime-v5';
 const APP_BASE = '/kam-fleets/';
 const APP_SHELL = [
   APP_BASE,
@@ -46,6 +46,45 @@ self.addEventListener('activate', (event) => {
         .map((cacheName) => caches.delete(cacheName))
     )).then(() => self.clients.claim())
   );
+});
+
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = { body: event.data?.text() || 'There is a new fleet notification.' };
+  }
+  const notificationId = typeof payload.notificationId === 'string' ? payload.notificationId : '';
+  event.waitUntil(self.registration.showNotification(
+    typeof payload.title === 'string' ? payload.title : 'KAM Fleets notification',
+    {
+      body: typeof payload.body === 'string' ? payload.body : 'Open the app to review this notification.',
+      icon: `${APP_BASE}icon-192.png`,
+      badge: `${APP_BASE}icon-192.png`,
+      tag: notificationId || undefined,
+      renotify: false,
+      data: { notificationId },
+    },
+  ));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil((async () => {
+    const url = new URL(APP_BASE, self.location.origin);
+    const notificationId = event.notification.data?.notificationId;
+    if (typeof notificationId === 'string' && notificationId) url.searchParams.set('notification', notificationId);
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const existing = windows.find((client) => new URL(client.url).origin === self.location.origin
+      && new URL(client.url).pathname.startsWith(APP_BASE));
+    if (existing) {
+      await existing.navigate(url.href);
+      await existing.focus();
+      return;
+    }
+    await self.clients.openWindow(url.href);
+  })());
 });
 
 self.addEventListener('fetch', (event) => {

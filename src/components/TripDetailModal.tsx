@@ -22,6 +22,7 @@ import {
 } from '../types/database.ts';
 import { formatTsh } from '../utils/currency.ts';
 import { getDelaySeverityClasses } from '../utils/delaySeverity.ts';
+import { useModalAccessibility } from '../hooks/useModalAccessibility.ts';
 
 interface TripDetailModalProps {
   trip: EnrichedTrip;
@@ -75,6 +76,7 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
   onDeleteSparePart,
 }) => {
   const [activeTab, setActiveTab] = useState<'stats' | 'delays' | 'expenses' | 'spares' | 'overview'>('stats');
+  const dialogRef = useModalAccessibility(onClose);
 
   // Form states
   const [showAddDelay, setShowAddDelay] = useState(false);
@@ -98,6 +100,10 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
   const [showCompleteConfirmModal, setShowCompleteConfirmModal] = useState(false);
   const [completionMileage, setCompletionMileage] = useState('');
   const [completionMileageError, setCompletionMileageError] = useState('');
+  const completionDialogRef = useModalAccessibility(
+    () => setShowCompleteConfirmModal(false),
+    showCompleteConfirmModal,
+  );
   const startingMileage = Math.max(
     Number(trip.start_mileage ?? 0),
     Number(trip.truck?.current_mileage ?? 0),
@@ -187,7 +193,7 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-start justify-center p-2 sm:items-start sm:p-4">
-      <div className="modal-readable bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] min-w-0">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="trip-detail-title" tabIndex={-1} className="modal-readable bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] min-w-0">
         {/* Header */}
         <div className="bg-slate-900 text-white p-3 sm:p-5 border-b border-slate-800">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -218,7 +224,7 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
                   </span>
                 )}
               </div>
-              <h2 className="text-base sm:text-lg font-extrabold tracking-tight flex flex-wrap items-center gap-1 min-w-0 break-words">
+              <h2 id="trip-detail-title" className="text-base sm:text-lg font-extrabold tracking-tight flex flex-wrap items-center gap-1 min-w-0 break-words">
                 <span>{trip.origin}</span>
                 <span className="text-slate-400">→</span>
                 <span>{trip.destination}</span>
@@ -1029,9 +1035,11 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
       {showCompleteConfirmModal && (
         <div className="fixed inset-0 z-[60] overflow-y-auto bg-slate-950/70 backdrop-blur-xs p-3 sm:flex sm:items-start sm:justify-center sm:p-4">
           <section
+            ref={completionDialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="complete-trip-title"
+            tabIndex={-1}
             className="mx-auto w-full max-w-md space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-6"
           >
             <div>

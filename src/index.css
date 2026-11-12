@@ -29,6 +29,12 @@
   }
 }
 
+@media (max-width: 639px) {
+  .mobile-explanation {
+    display: none !important;
+  }
+}
+
 code, pre, .font-mono {
   font-family: 'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }

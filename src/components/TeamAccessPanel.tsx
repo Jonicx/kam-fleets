@@ -38,7 +38,7 @@ export const TeamAccessPanel: React.FC = () => {
     }
   };
 
-  const pendingCount = members.filter((member) => !member.active).length;
+  const pendingCount = members.filter((member) => member.pending).length;
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -59,13 +59,18 @@ export const TeamAccessPanel: React.FC = () => {
           <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
         </button>
       </div>
-      <p className="mt-2 text-xs leading-relaxed text-slate-500">
+      <p className="mobile-explanation mt-2 text-xs leading-relaxed text-slate-500">
         Everyone shares the same fleet data. Approve new sign-ups and choose who can manage billing and deletions.
       </p>
       {error && <p role="alert" className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">{error}</p>}
       <ul className="mt-4 divide-y divide-slate-100">
-        {members.map((member) => (
-          <li key={member.id} className="flex flex-col gap-2 py-3">
+        {isLoading ? (
+        <li role="status" className="flex items-center justify-center gap-2 py-6 text-xs text-slate-500">
+          <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+          Loading team members...
+        </li>
+        ) : members.map((member) => (
+        <li key={member.id} className="flex flex-col gap-2 py-3">
             <div className="min-w-0">
               <p className="truncate text-xs font-bold text-slate-800">{member.name || member.email}</p>
               <p className="truncate text-[10px] text-slate-500">{member.email}</p>
@@ -98,7 +103,7 @@ export const TeamAccessPanel: React.FC = () => {
         ))}
         {!isLoading && members.length === 0 && <li className="py-6 text-center text-xs text-slate-500">No team members yet.</li>}
       </ul>
-      <div className="mt-2 rounded-lg border border-amber-100 bg-amber-50 p-3 text-[11px] leading-relaxed text-amber-900">
+      <div className="mobile-explanation mt-2 rounded-lg border border-amber-100 bg-amber-50 p-3 text-[11px] leading-relaxed text-amber-900">
         Invoices and payments are never deleted: corrections are recorded as voids and reversals. Trip deletion is blocked when invoices exist.
       </div>
     </div>
