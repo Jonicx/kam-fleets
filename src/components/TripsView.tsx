@@ -26,7 +26,7 @@ interface TripsViewProps {
   onSelectTrip: (tripId: string) => void;
   onOpenUpdateModal?: (tripId: string) => void;
   onOpenNewTripModal: () => void;
-  onUpdateTripStatus: (tripId: string, status: TripStatus, endMileage?: number) => void;
+  onUpdateTripStatus: (tripId: string, status: TripStatus, distanceTraveled?: number) => void;
   onDeleteTrip: (tripId: string) => void;
   onEditTrip?: (tripId: string) => void;
 }
@@ -46,15 +46,15 @@ export const TripsView: React.FC<TripsViewProps> = ({
   const [clientFilter, setClientFilter] = useState('All');
   const [tripToDelete, setTripToDelete] = useState<EnrichedTrip | null>(null);
   const [tripToComplete, setTripToComplete] = useState<EnrichedTrip | null>(null);
-  const [completionMileage, setCompletionMileage] = useState('');
-  const [completionMileageError, setCompletionMileageError] = useState('');
+  const [completionDistance, setCompletionDistance] = useState('');
+  const [completionDistanceError, setCompletionDistanceError] = useState('');
   const [tripDeleteError, setTripDeleteError] = useState('');
   const deleteDialogRef = useModalAccessibility(() => setTripToDelete(null), Boolean(tripToDelete));
   const completionDialogRef = useModalAccessibility(() => setTripToComplete(null), Boolean(tripToComplete));
   const openCompletionModal = (trip: EnrichedTrip) => {
     setTripToComplete(trip);
-    setCompletionMileage('');
-    setCompletionMileageError('');
+    setCompletionDistance('');
+    setCompletionDistanceError('');
   };
 
   const filteredTrips = trips.filter((trip) => {
@@ -195,6 +195,12 @@ export const TripsView: React.FC<TripsViewProps> = ({
                         <span className="block text-slate-500">to {new Date(trip.scheduled_end).toLocaleDateString()}</span>
                       </dd>
                     </div>
+                    <div className="col-span-2 min-w-0 rounded-lg bg-slate-50 px-2.5 py-2">
+                      <dt className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Distance travelled</dt>
+                      <dd className="mt-0.5 font-mono font-semibold text-slate-800">
+                        {trip.distance_traveled == null ? 'Not recorded' : `${trip.distance_traveled.toLocaleString()} km`}
+                      </dd>
+                    </div>
                   </dl>
                   <div className="mt-2.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-lg border border-slate-100 px-3 py-2">
                     <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{trip.status === 'Completed' ? 'Budget variance' : 'Spent / budget'}</span>
@@ -315,6 +321,9 @@ export const TripsView: React.FC<TripsViewProps> = ({
                       <td className="py-4 px-4 whitespace-nowrap text-slate-500 text-xs md:text-[11px]">
                         <div>Start: {new Date(trip.scheduled_start).toLocaleDateString()}</div>
                         <div>End: {new Date(trip.scheduled_end).toLocaleDateString()}</div>
+                        <div className="mt-1 font-semibold text-slate-700">
+                          Distance: {trip.distance_traveled == null ? '—' : `${trip.distance_traveled.toLocaleString()} km`}
+                        </div>
                       </td>
 
                       {/* Financials */}
@@ -460,10 +469,6 @@ export const TripsView: React.FC<TripsViewProps> = ({
         const budget = Number(tripToComplete.budget_allocated) || 0;
         const profitLoss = budget - (driverPay + totalExp + totalSpares);
         const isProfitable = profitLoss >= 0;
-        const minimumMileage = Math.max(
-          Number(tripToComplete.start_mileage ?? 0),
-          Number(tripToComplete.truck?.current_mileage ?? 0),
-        );
 
         return (
           <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-start justify-center p-3 sm:items-start sm:p-4">
@@ -479,25 +484,26 @@ export const TripsView: React.FC<TripsViewProps> = ({
               </div>
 
               <label className="block text-xs font-semibold text-slate-700">
-                Final odometer reading (km) *
+                Distance travelled (km) *
                 <input
                   type="number"
                   required
-                  min={minimumMileage}
+                  min={1}
+                  max={100_000_000}
                   step="1"
                   inputMode="numeric"
-                  value={completionMileage}
+                  value={completionDistance}
                   onChange={(event) => {
-                    setCompletionMileage(event.target.value);
-                    setCompletionMileageError('');
+                    setCompletionDistance(event.target.value);
+                    setCompletionDistanceError('');
                   }}
-                  aria-label="Final odometer reading in kilometers"
+                  aria-label="Distance travelled in kilometers"
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
                 />
                 <span className="mt-1 block font-normal text-slate-500">
-                  Trip started at {minimumMileage.toLocaleString()} km.
+                  Enter the total kilometres for the trip, including the return journey if applicable.
                 </span>
-                {completionMileageError && <span role="alert" className="mt-1 block font-semibold text-rose-700">{completionMileageError}</span>}
+                {completionDistanceError && <span role="alert" className="mt-1 block font-semibold text-rose-700">{completionDistanceError}</span>}
               </label>
 
               {/* Route Summary */}
@@ -594,16 +600,16 @@ export const TripsView: React.FC<TripsViewProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    const finalMileage = Number(completionMileage);
-                    if (!completionMileage.trim() || !Number.isInteger(finalMileage) || finalMileage < minimumMileage) {
-                      setCompletionMileageError(`Enter a whole-number odometer reading of at least ${minimumMileage.toLocaleString()} km.`);
+                    const distance = Number(completionDistance);
+                    if (!completionDistance.trim() || !Number.isInteger(distance) || distance <= 0 || distance > 100_000_000) {
+                      setCompletionDistanceError('Enter a whole-number trip distance between 1 and 100,000,000 km.');
                       return;
                     }
                     try {
-                      onUpdateTripStatus(tripToComplete.id, 'Completed', finalMileage);
+                      onUpdateTripStatus(tripToComplete.id, 'Completed', distance);
                       setTripToComplete(null);
                     } catch (error) {
-                      setCompletionMileageError(error instanceof Error ? error.message : 'The trip could not be completed.');
+                      setCompletionDistanceError(error instanceof Error ? error.message : 'The trip could not be completed.');
                     }
                   }}
                   className="px-4 py-2 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm"

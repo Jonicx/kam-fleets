@@ -89,6 +89,35 @@ describe('FleetDomain - Truck Management', () => {
       expect(updated.current_mileage).toBe(10000);
     });
 
+    it('does not allow recalibrating the odometer while a truck is on an ongoing trip', () => {
+      const truck = domain.createTruck({
+        license_plate: 'ODO 123',
+        model: 'Odometer Truck',
+        status: 'Available',
+        current_mileage: 1000,
+      });
+      const driver = domain.createDriver({
+        full_name: 'Odometer Driver',
+        license_number: 'ODO-LIC',
+        phone: '1234567890',
+        status: 'Available',
+      });
+      const trip = domain.createTrip({
+        truck_id: truck.id,
+        driver_id: driver.id,
+        origin: 'A',
+        destination: 'B',
+        scheduled_start: new Date().toISOString(),
+        scheduled_end: new Date(Date.now() + 86400000).toISOString(),
+        budget_allocated: 1000,
+        driver_pay: 0,
+      });
+      domain.updateTrip(trip.id, { status: 'Ongoing' });
+
+      expect(() => domain.updateTruck(truck.id, { current_mileage: 900 })).toThrow('cannot be recalibrated');
+      expect(domain.getTruck(truck.id)?.current_mileage).toBe(1000);
+    });
+
     it('should throw error for non-existent truck', () => {
       expect(() => {
         domain.updateTruck('non-existent-id', { status: 'Maintenance' });
@@ -306,7 +335,7 @@ describe('FleetDomain - Client Management', () => {
       driver_pay: 100,
     });
     domain.updateTrip(trip.id, { status: 'Ongoing' });
-    domain.completeTrip(trip.id, 0);
+    domain.completeTrip(trip.id, 1);
 
     const invoice = domain.createInvoice({
       trip_id: trip.id,
@@ -333,7 +362,7 @@ describe('FleetDomain - Client Management', () => {
       driver_pay: 100,
     });
     domain.updateTrip(trip.id, { status: 'Ongoing' });
-    domain.completeTrip(trip.id, 0);
+    domain.completeTrip(trip.id, 1);
 
     const invoice = domain.createInvoice({
       trip_id: trip.id,
@@ -480,8 +509,8 @@ describe('FleetDomain - Trip Management', () => {
         driver_id: driver.id,
         origin: 'A',
         destination: 'B',
-        scheduled_start: new Date().toISOString(),
-        scheduled_end: new Date(Date.now() + 86400000).toISOString(),
+        scheduled_start: new Date(Date.now() + 60_000).toISOString(),
+        scheduled_end: new Date(Date.now() + 86460000).toISOString(),
         budget_allocated: 1000,
         driver_pay: 500,
       });
@@ -511,8 +540,8 @@ describe('FleetDomain - Trip Management', () => {
         driver_id: driver.id,
         origin: 'A',
         destination: 'B',
-        scheduled_start: new Date().toISOString(),
-        scheduled_end: new Date(Date.now() + 86400000).toISOString(),
+        scheduled_start: new Date(Date.now() + 60_000).toISOString(),
+        scheduled_end: new Date(Date.now() + 86460000).toISOString(),
         budget_allocated: 1000,
         driver_pay: 500,
       });
@@ -521,7 +550,7 @@ describe('FleetDomain - Trip Management', () => {
       expect(domain.getTruck(truck.id)?.status).toBe('On Trip');
       expect(domain.getDriver(driver.id)?.status).toBe('On Trip');
 
-      domain.completeTrip(trip.id, 0);
+      domain.completeTrip(trip.id, 1);
 
       const updatedTrip = domain.getTrips().find((item) => item.id === trip.id);
       expect(updatedTrip?.status).toBe('Completed');
@@ -529,13 +558,13 @@ describe('FleetDomain - Trip Management', () => {
 
       const updatedTruck = domain.getTruck(truck.id);
       expect(updatedTruck?.status).toBe('Available');
-      expect(updatedTruck?.current_mileage).toBe(0);
+      expect(updatedTruck?.current_mileage).toBe(1);
 
       const updatedDriver = domain.getDriver(driver.id);
       expect(updatedDriver?.status).toBe('Available');
     });
 
-    it('records starting and final odometer readings and updates the truck mileage', () => {
+    it('records trip distance and calculates the final odometer reading', () => {
       const truck = domain.createTruck({
         license_plate: 'MILE 123',
         model: 'Mileage Truck',
@@ -553,21 +582,64 @@ describe('FleetDomain - Trip Management', () => {
         driver_id: driver.id,
         origin: 'A',
         destination: 'B',
-        scheduled_start: new Date().toISOString(),
-        scheduled_end: new Date(Date.now() + 86400000).toISOString(),
+        scheduled_start: new Date(Date.now() + 60_000).toISOString(),
+        scheduled_end: new Date(Date.now() + 86460000).toISOString(),
         budget_allocated: 1000,
         driver_pay: 0,
-        start_mileage: 450,
       });
 
-      expect(trip.start_mileage).toBe(450);
-      expect(domain.getTruck(truck.id)?.current_mileage).toBe(450);
+      expect(trip.start_mileage).toBeUndefined();
+      expect(domain.getTruck(truck.id)?.current_mileage).toBe(400);
       domain.updateTrip(trip.id, { status: 'Ongoing' });
-      expect(() => domain.updateTrip(trip.id, { status: 'Completed', end_mileage: 449 })).toThrow('Final odometer reading');
-      const completed = domain.completeTrip(trip.id, 620);
+      expect(domain.getTrips().find((item) => item.id === trip.id)?.start_mileage).toBe(400);
+      expect(() => domain.updateTrip(trip.id, { status: 'Completed', distance_traveled: 0 })).toThrow('Distance travelled');
+      const completed = domain.completeTrip(trip.id, 220);
 
+      expect(completed.distance_traveled).toBe(220);
+      expect(completed.start_mileage).toBe(400);
       expect(completed.end_mileage).toBe(620);
       expect(domain.getTruck(truck.id)?.current_mileage).toBe(620);
+    });
+
+    it('recalculates historical trip odometers from scheduled dates and updates cumulative totals', () => {
+      const now = Date.now();
+      const truck = domain.createTruck({
+        license_plate: 'HIST 123',
+        model: 'Historical Truck',
+        status: 'Available',
+        current_mileage: 2000,
+      });
+      const driver = domain.createDriver({
+        full_name: 'Historical Driver',
+        license_number: 'HIST-LIC',
+        phone: '1234567890',
+        status: 'Available',
+      });
+      const createHistoricalTrip = (scheduledStart: number) => domain.createTrip({
+        truck_id: truck.id,
+        driver_id: driver.id,
+        origin: 'A',
+        destination: 'B',
+        scheduled_start: new Date(scheduledStart).toISOString(),
+        scheduled_end: new Date(scheduledStart + 60 * 60 * 1000).toISOString(),
+        budget_allocated: 1000,
+        driver_pay: 0,
+      });
+      const earlierTrip = createHistoricalTrip(now - 20 * 86400000);
+      const laterTrip = createHistoricalTrip(now - 10 * 86400000);
+
+      for (const [trip, distance] of [[laterTrip, 500], [earlierTrip, 700]] as const) {
+        domain.updateTrip(trip.id, { status: 'Ongoing' });
+        domain.completeTrip(trip.id, distance);
+      }
+
+      const trips = domain.getTrips();
+      const earlier = trips.find((trip) => trip.id === earlierTrip.id);
+      const later = trips.find((trip) => trip.id === laterTrip.id);
+      expect(earlier).toMatchObject({ start_mileage: 800, end_mileage: 1500 });
+      expect(later).toMatchObject({ start_mileage: 1500, end_mileage: 2000 });
+      expect(domain.getTruck(truck.id)).toMatchObject({ current_mileage: 2000, total_distance_traveled: 1200 });
+      expect(domain.getDriver(driver.id)?.total_distance_traveled).toBe(1200);
     });
 
     it('does not allow a planned trip to be completed without starting it', () => {
@@ -697,7 +769,7 @@ describe('FleetDomain - Invoice and Payment Management', () => {
     });
 
     domain.updateTrip(trip.id, { status: 'Ongoing' });
-    domain.completeTrip(trip.id, 0);
+    domain.completeTrip(trip.id, 1);
     tripId = trip.id;
   });
 

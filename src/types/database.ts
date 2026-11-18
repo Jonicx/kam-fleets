@@ -21,6 +21,9 @@ export interface Truck {
   year?: number;
   capacity_tons?: number;
   current_mileage?: number;
+  total_distance_traveled?: number;
+  odometer_baseline_date?: string;
+  odometer_baseline_mileage?: number;
   created_at: string;
   updated_at: string;
 }
@@ -46,6 +49,8 @@ export interface Driver {
   phone: string;
   status: DriverStatus;
   experience_years?: number;
+  /** Sum of distance_traveled across all completed trips driven by this driver. Derived, not editable. */
+  total_distance_traveled?: number;
   created_at: string;
   updated_at: string;
 }
@@ -77,6 +82,10 @@ export interface Trip {
   driver_pay: number;      // Driver compensation for this trip instance
   start_mileage?: number;
   end_mileage?: number;
+  /** Kilometres travelled during this trip. Source of truth for odometer readings; required (>0) on completed trips unless flagged for repair. */
+  distance_traveled?: number | null;
+  /** True when a completed trip is missing a usable distance and is excluded from odometer/totals until corrected. */
+  odometer_repair_required?: boolean;
   cargo_type?: string;
   notes?: string;
   delay_logs: DelayLog[]; // Dynamic delay reasons with timestamps
@@ -111,7 +120,6 @@ export interface CreateTripPayload {
   scheduled_end: string;
   budget_allocated: number;
   driver_pay: number;
-  start_mileage?: number;
   cargo_type?: string;
   notes?: string;
   initial_expenses?: InitialExpenseInput[];

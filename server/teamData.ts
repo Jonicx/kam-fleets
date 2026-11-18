@@ -20,16 +20,17 @@ const TRUCKS: TableSpec = {
   table: 'trucks',
   columns: {
     id: 'id', license_plate: 'license_plate', model: 'model', status: 'status', year: 'year',
-    capacity_tons: 'capacity_tons', current_mileage: 'current_mileage', created_at: 'created_at', updated_at: 'updated_at',
+    capacity_tons: 'capacity_tons', current_mileage: 'current_mileage', total_distance_traveled: 'total_distance_traveled', odometer_baseline_date: 'odometer_baseline_date', odometer_baseline_mileage: 'odometer_baseline_mileage', created_at: 'created_at', updated_at: 'updated_at',
   },
-  numeric: ['capacity_tons'],
+  numeric: ['capacity_tons', 'total_distance_traveled', 'odometer_baseline_mileage'],
 };
 const DRIVERS: TableSpec = {
   table: 'drivers',
   columns: {
     id: 'id', full_name: 'full_name', license_number: 'license_number', phone: 'phone', status: 'status',
-    experience_years: 'experience_years', created_at: 'created_at', updated_at: 'updated_at',
+    experience_years: 'experience_years', total_distance_traveled: 'total_distance_traveled', created_at: 'created_at', updated_at: 'updated_at',
   },
+  numeric: ['total_distance_traveled'],
 };
 const CLIENTS: TableSpec = {
   table: 'clients',
@@ -43,12 +44,12 @@ const TRIPS: TableSpec = {
   columns: {
     id: 'id', truck_id: 'truck_id', driver_id: 'driver_id', client_id: 'client_id', status: 'status', origin: 'origin', destination: 'destination',
     scheduled_start: 'scheduled_start', scheduled_end: 'scheduled_end', budget_allocated: 'budget_allocated',
-    driver_pay: 'driver_pay', start_mileage: 'start_mileage', end_mileage: 'end_mileage',
+    driver_pay: 'driver_pay', start_mileage: 'start_mileage', end_mileage: 'end_mileage', distance_traveled: 'distance_traveled', odometer_repair_required: 'odometer_repair_required',
     cargo_type: 'cargo_type', notes: 'notes', final_profit_loss: 'final_profit_loss',
     total_expenses_cost: 'total_expenses_cost', total_spare_parts_cost: 'total_spare_parts_cost',
     financial_flag: 'financial_flag', completed_at: 'completed_at', created_at: 'created_at', updated_at: 'updated_at',
   },
-  numeric: ['budget_allocated', 'driver_pay', 'start_mileage', 'end_mileage', 'final_profit_loss', 'total_expenses_cost', 'total_spare_parts_cost'],
+  numeric: ['budget_allocated', 'driver_pay', 'start_mileage', 'end_mileage', 'distance_traveled', 'final_profit_loss', 'total_expenses_cost', 'total_spare_parts_cost'],
   actorColumn: 'created_by',
 };
 const SERVICE_RECORDS: TableSpec = {

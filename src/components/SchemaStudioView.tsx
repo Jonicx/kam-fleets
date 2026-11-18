@@ -191,6 +191,14 @@ export const SchemaStudioView: React.FC = () => {
                   <span className="text-slate-700">current_mileage</span>
                   <span className="text-slate-400 text-[11px]">INTEGER</span>
                 </div>
+                <div className="py-1.5 flex items-center justify-between">
+                  <span className="text-slate-700">total_distance_traveled</span>
+                  <span className="text-slate-400 text-[11px]">INTEGER (derived from completed trips)</span>
+                </div>
+                <div className="py-1.5 flex items-center justify-between">
+                  <span className="text-slate-700">odometer_baseline_date / mileage</span>
+                  <span className="text-slate-400 text-[11px]">TIMESTAMPTZ / INTEGER</span>
+                </div>
                 <div className="py-1.5 flex items-center justify-between text-slate-400 text-[11px]">
                   <span>created_at / updated_at</span>
                   <span>TIMESTAMPTZ</span>
@@ -236,6 +244,10 @@ export const SchemaStudioView: React.FC = () => {
                 <div className="py-1.5 flex items-center justify-between">
                   <span className="text-slate-700">experience_years</span>
                   <span className="text-slate-400 text-[11px]">INTEGER</span>
+                </div>
+                <div className="py-1.5 flex items-center justify-between">
+                  <span className="text-slate-700">total_distance_traveled</span>
+                  <span className="text-slate-400 text-[11px]">INTEGER (derived from completed trips)</span>
                 </div>
                 <div className="py-1.5 flex items-center justify-between text-slate-400 text-[11px]">
                   <span>created_at / updated_at</span>
@@ -288,6 +300,14 @@ export const SchemaStudioView: React.FC = () => {
                 <div className="py-1.5 flex items-center justify-between">
                   <span className="text-slate-700">scheduled_start / end</span>
                   <span className="text-slate-400 text-[11px]">TIMESTAMPTZ</span>
+                </div>
+                <div className="py-1.5 flex items-center justify-between">
+                  <span className="text-slate-700">distance_traveled</span>
+                  <span className="text-slate-400 text-[11px]">INTEGER (km, source of truth)</span>
+                </div>
+                <div className="py-1.5 flex items-center justify-between">
+                  <span className="text-slate-700">start_mileage / end_mileage</span>
+                  <span className="text-slate-400 text-[11px]">INTEGER (calculated)</span>
                 </div>
                 <div className="py-1.5 flex items-center justify-between">
                   <span className="text-slate-900 font-semibold">budget_allocated</span>
@@ -717,6 +737,9 @@ CREATE TABLE trucks (
     year INT CHECK (year >= 1990),
     capacity_tons NUMERIC(5, 2) CHECK (capacity_tons > 0),
     current_mileage INT DEFAULT 0 CHECK (current_mileage >= 0),
+    total_distance_traveled INT NOT NULL DEFAULT 0 CHECK (total_distance_traveled >= 0),
+    odometer_baseline_date TIMESTAMPTZ,
+    odometer_baseline_mileage INT CHECK (odometer_baseline_mileage >= 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -729,6 +752,7 @@ CREATE TABLE drivers (
     phone VARCHAR(30) NOT NULL,
     status driver_status_enum NOT NULL DEFAULT 'Available',
     experience_years INT DEFAULT 1 CHECK (experience_years >= 0),
+    total_distance_traveled INT NOT NULL DEFAULT 0 CHECK (total_distance_traveled >= 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -745,6 +769,10 @@ CREATE TABLE trips (
     scheduled_end TIMESTAMPTZ NOT NULL,
     budget_allocated NUMERIC(12, 2) NOT NULL CHECK (budget_allocated >= 0),
     driver_pay NUMERIC(10, 2) NOT NULL DEFAULT 0.00 CHECK (driver_pay >= 0),
+    start_mileage INT,
+    end_mileage INT,
+    distance_traveled INT CHECK (distance_traveled > 0),
+    odometer_repair_required BOOLEAN NOT NULL DEFAULT FALSE,
     cargo_type VARCHAR(150),
     notes TEXT,
     delay_reasons TEXT[] DEFAULT ARRAY[]::TEXT[],
@@ -803,7 +831,7 @@ CREATE INDEX idx_trip_delay_logs_trip_id ON trip_delay_logs(trip_id);
 const DRIZZLE_ORM_CODE = `// src/db/schema.ts - Drizzle ORM Definition
 import { relations } from 'drizzle-orm';
 import {
-  pgTable, uuid, varchar, integer, numeric, text, timestamp, pgEnum, jsonb, index
+  pgTable, uuid, varchar, integer, numeric, text, timestamp, pgEnum, jsonb, boolean, index
 } from 'drizzle-orm/pg-core';
 
 export const truckStatusEnum = pgEnum('truck_status', ['Available', 'On Trip', 'Maintenance']);
@@ -818,6 +846,9 @@ export const trucks = pgTable('trucks', {
   status: truckStatusEnum('status').default('Available').notNull(),
   capacityTons: numeric('capacity_tons', { precision: 5, scale: 2 }),
   currentMileage: integer('current_mileage').default(0),
+  totalDistanceTraveled: integer('total_distance_traveled').default(0).notNull(),
+  odometerBaselineDate: timestamp('odometer_baseline_date', { withTimezone: true }),
+  odometerBaselineMileage: integer('odometer_baseline_mileage'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
@@ -828,6 +859,7 @@ export const drivers = pgTable('drivers', {
   licenseNumber: varchar('license_number', { length: 50 }).notNull().unique(),
   phone: varchar('phone', { length: 30 }).notNull(),
   status: driverStatusEnum('status').default('Available').notNull(),
+  totalDistanceTraveled: integer('total_distance_traveled').default(0).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
@@ -843,6 +875,10 @@ export const trips = pgTable('trips', {
   scheduledEnd: timestamp('scheduled_end', { withTimezone: true }).notNull(),
   budgetAllocated: numeric('budget_allocated', { precision: 12, scale: 2 }).notNull(),
   driverPay: numeric('driver_pay', { precision: 10, scale: 2 }).default('0.00').notNull(),
+  startMileage: integer('start_mileage'),
+  endMileage: integer('end_mileage'),
+  distanceTraveled: integer('distance_traveled'),
+  odometerRepairRequired: boolean('odometer_repair_required').default(false).notNull(),
   delayReasons: jsonb('delay_reasons').$type<string[]>().default([]),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

@@ -191,8 +191,8 @@ export const AdminOverviewSection: React.FC<AdminOverviewSectionProps> = ({
               </table>
             </div>
           </details>
-          <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-            Invoices use issue date; cash uses payment date; completed-trip costs use completion date; open-trip and fleet-service costs use transaction dates.
+          <p className="mt-1 mobile-explanation text-[11px] leading-relaxed text-slate-500">
+            Invoices use issue date; cash uses payment date; completed-trip costs use completion date; ongoing-trip and fleet-service costs use transaction dates.
           </p>
         </div>
 
@@ -217,9 +217,6 @@ export const AdminOverviewSection: React.FC<AdminOverviewSectionProps> = ({
                   </div>
                 </div>
               ))}
-              <p className="rounded-lg bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">
-                Completed trip expenses and parts use saved completion snapshots; open trip costs use transactions in the selected period. Driver pay is included only on completed trips. Fleet service stays separate and is never allocated to trips.
-              </p>
             </div>
           </details>
         </div>

@@ -49,7 +49,6 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
 
   // Form states
   const [truckId, setTruckId] = useState('');
-  const [startMileage, setStartMileage] = useState('');
   const [driverId, setDriverId] = useState('');
   const [clientId, setClientId] = useState('');
   const [origin, setOrigin] = useState('');
@@ -101,8 +100,8 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
     setInitialExpenses((prev) => [
       ...prev,
       {
-        expense_type: 'Tolls',
-        amount: 50,
+        expense_type: 'Fuel',
+        amount: 0,
         description: '',
       },
     ]);
@@ -126,8 +125,8 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
       ...prev,
       {
         part_name: '',
-        price: 80,
-        description: 'Pre-departure replacement',
+        price: 0,
+        description: '',
       },
     ]);
   };
@@ -166,12 +165,6 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
       setErrorMsg('Double-Booking Conflict: The selected truck is no longer available. Please choose another.');
       return;
     }
-    const startingMileage = Number(startMileage);
-    if (!startMileage.trim() || !Number.isInteger(startingMileage) || startingMileage < Number(selectedTruck.current_mileage ?? 0)) {
-      setErrorMsg(`Enter a whole-number starting odometer reading of at least ${Number(selectedTruck.current_mileage ?? 0).toLocaleString()} km.`);
-      return;
-    }
-
     if (!driverId) {
       setErrorMsg('Please select an Available driver from the directory dropdown.');
       return;
@@ -237,7 +230,6 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
     try {
       onCreateTrip({
         truck_id: truckId,
-        start_mileage: startingMileage,
         driver_id: driverId,
         client_id: clientId || undefined,
         origin: origin.trim(),
@@ -335,8 +327,6 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
                     onChange={(e) => {
                       const selectedId = e.target.value;
                       setTruckId(selectedId);
-                      const selected = trucks.find((truck) => truck.id === selectedId);
-                      setStartMileage(selected ? String(selected.current_mileage ?? 0) : '');
                     }}
                     required
                     className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
@@ -367,25 +357,6 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
                       ) : null;
                     })()}
                   </div>
-                )}
-                {truckId && (
-                  <label className="mt-3 block text-[11px] font-semibold text-slate-700">
-                    Starting odometer reading (km) *
-                    <input
-                      type="number"
-                      required
-                      min={trucks.find((truck) => truck.id === truckId)?.current_mileage ?? 0}
-                      step="1"
-                      inputMode="numeric"
-                      value={startMileage}
-                      onChange={(event) => setStartMileage(event.target.value)}
-                      aria-label="Starting odometer reading in kilometers"
-                      className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <span className="mt-1 block font-normal text-slate-500">
-                      Current recorded odometer: {(trucks.find((truck) => truck.id === truckId)?.current_mileage ?? 0).toLocaleString()} km
-                    </span>
-                  </label>
                 )}
               </div>
 

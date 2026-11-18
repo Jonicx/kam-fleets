@@ -9,9 +9,10 @@ import {
   timestamp,
   pgEnum,
   jsonb,
+  boolean,
+  check,
   index,
   uniqueIndex,
-  check,
 } from 'drizzle-orm/pg-core';
 
 // ============================================================================
@@ -33,6 +34,9 @@ export const trucks = pgTable('trucks', {
   year: integer('year'),
   capacityTons: numeric('capacity_tons', { precision: 5, scale: 2 }),
   currentMileage: integer('current_mileage').default(0),
+  totalDistanceTraveled: integer('total_distance_traveled').default(0).notNull(),
+  odometerBaselineDate: timestamp('odometer_baseline_date', { withTimezone: true }),
+  odometerBaselineMileage: integer('odometer_baseline_mileage'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
@@ -47,6 +51,7 @@ export const drivers = pgTable('drivers', {
   phone: varchar('phone', { length: 30 }).notNull(),
   status: driverStatusEnum('status').default('Available').notNull(),
   experienceYears: integer('experience_years').default(1),
+  totalDistanceTraveled: integer('total_distance_traveled').default(0).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
@@ -89,6 +94,8 @@ export const trips = pgTable(
     driverPay: numeric('driver_pay', { precision: 10, scale: 2 }).default('0.00').notNull(),
     startMileage: integer('start_mileage'),
     endMileage: integer('end_mileage'),
+    distanceTraveled: integer('distance_traveled'),
+    odometerRepairRequired: boolean('odometer_repair_required').default(false).notNull(),
     cargoType: varchar('cargo_type', { length: 150 }),
     notes: text('notes'),
     delayReasons: jsonb('delay_reasons').$type<string[]>().default([]),

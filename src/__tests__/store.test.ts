@@ -578,6 +578,7 @@ describe('DatabaseStore - SQL Mock', () => {
 
     expect(result.columns).toContain('license_plate');
     expect(result.columns).toContain('model');
+    expect(result.columns).toContain('total_distance_traveled');
     expect(result.executionTimeMs).toBeGreaterThanOrEqual(0);
   });
 
@@ -586,6 +587,7 @@ describe('DatabaseStore - SQL Mock', () => {
 
     expect(result.columns).toContain('full_name');
     expect(result.columns).toContain('license_number');
+    expect(result.columns).toContain('total_distance_traveled');
     expect(result.executionTimeMs).toBeGreaterThanOrEqual(0);
   });
 
@@ -594,6 +596,7 @@ describe('DatabaseStore - SQL Mock', () => {
 
     expect(result.columns).toContain('origin');
     expect(result.columns).toContain('destination');
+    expect(result.columns).toContain('distance_traveled');
     expect(result.executionTimeMs).toBeGreaterThanOrEqual(0);
   });
 

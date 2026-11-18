@@ -269,9 +269,9 @@ function FleetTripManagerApp() {
             onSelectTrip={(id) => setSelectedTripId(id)}
             onOpenUpdateModal={(id) => setUpdatingTripId(id)}
             onOpenNewTripModal={() => setShowNewTripModal(true)}
-            onUpdateTripStatus={(id, status, endMileage) => dbStore.updateTrip(id, {
+            onUpdateTripStatus={(id, status, distanceTraveled) => dbStore.updateTrip(id, {
               status,
-              ...(endMileage === undefined ? {} : { end_mileage: endMileage }),
+              ...(distanceTraveled === undefined ? {} : { distance_traveled: distanceTraveled }),
             })}
             onDeleteTrip={(id) => dbStore.deleteTrip(id)}
             onEditTrip={(id) => setEditingTripId(id)}
@@ -357,9 +357,9 @@ function FleetTripManagerApp() {
         <UpdateTripModal
           trip={updatingTrip}
           onClose={() => setUpdatingTripId(null)}
-          onUpdateStatus={(id, status, endMileage) => dbStore.updateTrip(id, {
+          onUpdateStatus={(id, status, distanceTraveled) => dbStore.updateTrip(id, {
             status,
-            ...(endMileage === undefined ? {} : { end_mileage: endMileage }),
+            ...(distanceTraveled === undefined ? {} : { distance_traveled: distanceTraveled }),
           })}
           onAddDelayLog={(id, log) => dbStore.addDelayLog(id, log)}
           onRemoveDelayLog={(id, logId) => dbStore.removeDelayLog(id, logId)}
@@ -375,9 +375,9 @@ function FleetTripManagerApp() {
           trip={selectedTrip}
           onClose={() => setSelectedTripId(null)}
           onOpenUpdateModal={(id) => setUpdatingTripId(id)}
-          onUpdateStatus={(id, status, endMileage) => dbStore.updateTrip(id, {
+          onUpdateStatus={(id, status, distanceTraveled) => dbStore.updateTrip(id, {
             status,
-            ...(endMileage === undefined ? {} : { end_mileage: endMileage }),
+            ...(distanceTraveled === undefined ? {} : { distance_traveled: distanceTraveled }),
           })}
           onAddDelayLog={(id, log) => dbStore.addDelayLog(id, log)}
           onRemoveDelayLog={(id, logId) => dbStore.removeDelayLog(id, logId)}

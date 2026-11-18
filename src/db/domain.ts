@@ -81,6 +81,7 @@ export const COMMAND_NAMES = [
   'deleteClient',
   'createTrip',
   'completeTrip',
+  'correctCompletedTrip',
   'updateTrip',
   'deleteTrip',
   'addDelayLog',
@@ -105,6 +106,7 @@ export const ADMIN_ONLY_COMMANDS: ReadonlySet<CommandName> = new Set<CommandName
   'deleteDriver',
   'deleteClient',
   'deleteTrip',
+  'correctCompletedTrip',
 ]);
 
 export const isCommandName = (value: unknown): value is CommandName =>
@@ -288,6 +290,7 @@ export class FleetDomain {
     this.payments = snapshot.payments;
     this.auditLogs = snapshot.auditLogs;
     this.auditActor = snapshot.auditActor;
+    this.normalizeOdometerData();
   }
 
   public resetToDefault() {
@@ -300,6 +303,7 @@ export class FleetDomain {
     this.spareParts = JSON.parse(JSON.stringify(INITIAL_SPARE_PARTS));
     this.invoices = [];
     this.payments = [];
+    this.normalizeOdometerData();
     this.recordAudit('reset', 'database', 'seed data', 'Restored the sample fleet database; invoices and payments were cleared.');
   }
 
@@ -633,6 +637,9 @@ export class FleetDomain {
     const newTruck = {
       ...fields,
       id: this.newId(),
+      total_distance_traveled: 0,
+      odometer_baseline_date: now,
+      odometer_baseline_mileage: fields.current_mileage ?? 0,
       created_at: now,
       updated_at: now,
     } as Truck;
@@ -648,9 +655,14 @@ export class FleetDomain {
     const fields = this.readTruckFields(updates, true);
     const hasOngoingTrip = this.trips.some((trip) => trip.truck_id === id && trip.status === 'Ongoing');
 
-    if (fields.current_mileage !== undefined && fields.current_mileage < Number(previous.current_mileage ?? 0)) {
-      throw new Error(`Truck mileage cannot be reduced below its current reading of ${Number(previous.current_mileage ?? 0).toLocaleString()} km.`);
+    if (
+      hasOngoingTrip &&
+      fields.current_mileage !== undefined &&
+      fields.current_mileage !== Number(previous.current_mileage ?? 0)
+    ) {
+      throw new Error('The odometer cannot be recalibrated while the truck has an ongoing trip.');
     }
+
 
     if (fields.status !== undefined && fields.status !== previous.status) {
       if (fields.status === 'On Trip') {
@@ -671,6 +683,12 @@ export class FleetDomain {
     }
 
     const updated: Truck = { ...previous, ...fields };
+    const mileageCalibrated =
+      fields.current_mileage !== undefined && fields.current_mileage !== Number(previous.current_mileage ?? 0);
+    if (mileageCalibrated) {
+      updated.odometer_baseline_date = this.nowIso();
+      updated.odometer_baseline_mileage = fields.current_mileage;
+    }
     const changed = changedFields(previous, updated);
     if (changed.length === 0) return previous;
     updated.updated_at = this.nowIso();
@@ -685,6 +703,7 @@ export class FleetDomain {
         after: Object.fromEntries(changed.map((key) => [key, updated[key]])),
       },
     );
+    if (mileageCalibrated) this.recalculateTruckDistance(id);
     return updated;
   }
 
@@ -933,15 +952,6 @@ export class FleetDomain {
         `Double-Booking Prevention: Driver '${driver.full_name}' is currently '${driver.status}' and cannot be dispatched.`
       );
     }
-    const startMileage = optionalInteger(
-      payload.start_mileage,
-      'Starting odometer reading',
-      0,
-      100_000_000,
-    ) ?? Number(truck.current_mileage ?? 0);
-    if (startMileage < Number(truck.current_mileage ?? 0)) {
-      throw new Error(`Starting odometer reading cannot be less than the truck's current reading of ${Number(truck.current_mileage ?? 0).toLocaleString()} km.`);
-    }
 
     // 4. Validate initial expenses if provided
     if (payload.initial_expenses && payload.initial_expenses.length > 0) {
@@ -987,7 +997,6 @@ export class FleetDomain {
       scheduled_end: new Date(payload.scheduled_end).toISOString(),
       budget_allocated: budgetNum,
       driver_pay: driverPayNum,
-      start_mileage: startMileage,
       cargo_type: payload.cargo_type?.trim() || 'General Cargo',
       notes: payload.notes?.trim() || '',
       delay_logs: [],
@@ -996,7 +1005,6 @@ export class FleetDomain {
     };
 
     this.trips.unshift(newTrip);
-    this.updateTruck(truck.id, { current_mileage: startMileage });
 
     // 7. Insert initial expenses (if any)
     if (payload.initial_expenses && payload.initial_expenses.length > 0) {
@@ -1043,8 +1051,8 @@ export class FleetDomain {
     return newTrip;
   }
 
-  public completeTrip(id: string, endMileage: number): Trip {
-    return this.updateTrip(id, { status: 'Completed', end_mileage: endMileage });
+  public completeTrip(id: string, distanceTraveled: number): Trip {
+    return this.updateTrip(id, { status: 'Completed', distance_traveled: distanceTraveled });
   }
 
   public updateTrip(id: string, updates: Partial<Omit<Trip, 'id' | 'created_at'>>): Trip {
@@ -1093,24 +1101,28 @@ export class FleetDomain {
         }
         this.updateTruckStatusInternal(effectiveTruckId, 'On Trip');
         this.updateDriverStatusInternal(effectiveDriverId, 'On Trip');
+        if (oldTrip.start_mileage == null) {
+          completionCalculations.start_mileage = Number(truck?.current_mileage ?? 0);
+        }
       } else if (newStatus === 'Completed') {
         if (oldTrip.status !== 'Ongoing') {
           throw new Error('Only an ongoing trip can be completed. Start the trip first.');
         }
-        const endMileage = optionalInteger(updates.end_mileage, 'Final odometer reading', 0, 100_000_000);
         const truck = this.trucks.find((item) => item.id === effectiveTruckId);
-        const minimumMileage = Math.max(
-          Number(oldTrip.start_mileage ?? 0),
-          Number(truck?.current_mileage ?? 0),
-        );
-        if (endMileage === undefined) {
-          throw new Error('A final odometer reading is required to complete the trip.');
+        let distance = updates.distance_traveled;
+        distance = optionalInteger(distance, 'Distance travelled (km)', 1, 100_000_000);
+        if (distance === undefined) {
+          throw new Error('Distance travelled (km) is required to complete the trip.');
         }
-        if (endMileage < minimumMileage) {
-          throw new Error(`Final odometer reading cannot be less than the trip's starting reading of ${minimumMileage.toLocaleString()} km.`);
+        updates.distance_traveled = distance;
+        delete updates.end_mileage;
+        if (truck) {
+          const truckIndex = this.trucks.findIndex((item) => item.id === truck.id);
+          this.trucks[truckIndex] = {
+            ...truck,
+            current_mileage: Number(truck.current_mileage ?? 0) + distance,
+          };
         }
-        updates.end_mileage = endMileage;
-        this.updateTruck(effectiveTruckId, { current_mileage: endMileage });
         // 1. Revert the assigned Truck and Driver statuses back to 'Available'
         this.updateTruckStatusInternal(effectiveTruckId, 'Available');
         this.updateDriverStatusInternal(effectiveDriverId, 'Available');
@@ -1173,6 +1185,10 @@ export class FleetDomain {
         { before: Object.fromEntries(changedTripFields.map((key) => [key, oldTrip[key as keyof Trip]])), after: Object.fromEntries(changedTripFields.map((key) => [key, this.trips[index][key as keyof Trip]])) },
       );
     }
+    if (newStatus === 'Completed') {
+      this.recalculateTruckDistance(effectiveTruckId);
+      this.recalculateDriverDistance(effectiveDriverId);
+    }
     return this.trips[index];
   }
 
@@ -1203,6 +1219,10 @@ export class FleetDomain {
       `Deleted trip ${trip.origin} to ${trip.destination}, ${deletedExpenses.length} expenses, and ${deletedSpareParts.length} parts.`,
       { trip, expenses: deletedExpenses, spare_parts: deletedSpareParts },
     );
+    if (trip.status === 'Completed') {
+      this.recalculateTruckDistance(trip.truck_id);
+      this.recalculateDriverDistance(trip.driver_id);
+    }
   }
 
   // --- DYNAMIC DELAY LOGS (Dynamic logs with timestamps) ---
@@ -1483,7 +1503,7 @@ export class FleetDomain {
       'scheduled_end',
       'budget_allocated',
       'driver_pay',
-      'end_mileage',
+      'distance_traveled',
       'cargo_type',
       'notes',
     ] as const;
@@ -1503,9 +1523,9 @@ export class FleetDomain {
     if (end < start) throw new Error('Scheduled End Date cannot be earlier than Scheduled Start Date.');
     if (next.budget_allocated !== undefined) next.budget_allocated = requireWholeAmount(next.budget_allocated, 'Budget Allocated');
     if (next.driver_pay !== undefined) next.driver_pay = requireWholeAmount(next.driver_pay, 'Driver Pay', { allowZero: true });
-    if (next.end_mileage !== undefined) {
-      next.end_mileage = optionalInteger(next.end_mileage, 'Final odometer reading', 0, 100_000_000);
-      if (next.status !== 'Completed') throw new Error('Final odometer reading can only be saved when completing a trip.');
+    if (next.distance_traveled !== undefined) {
+      next.distance_traveled = optionalInteger(next.distance_traveled, 'Distance travelled (km)', 1, 100_000_000);
+      if (next.status !== 'Completed') throw new Error('Distance travelled can only be recorded when completing a trip.');
     }
 
     const truckChanged = next.truck_id !== undefined && next.truck_id !== oldTrip.truck_id;
@@ -1534,6 +1554,205 @@ export class FleetDomain {
   }
 
 
+  // --- ODOMETER DISTANCE TRACKING ---
+  private validTripDistance(trip: Trip): number | null {
+    const distance = trip.distance_traveled;
+    return typeof distance === 'number' && Number.isInteger(distance) && distance > 0 ? distance : null;
+  }
+
+  private tripTimelineTime(trip: Trip): string {
+    return trip.scheduled_start ?? trip.created_at;
+  }
+
+  /** Backfills distance_traveled and derived truck/driver totals for legacy snapshots. */
+  protected normalizeOdometerData() {
+    for (const trip of this.trips) {
+      if (trip.status !== 'Completed') continue;
+      if (this.validTripDistance(trip) !== null) {
+        trip.odometer_repair_required = false;
+        continue;
+      }
+      const start = trip.start_mileage;
+      const end = trip.end_mileage;
+      if (
+        typeof start === 'number' && Number.isInteger(start) &&
+        typeof end === 'number' && Number.isInteger(end) && end > start
+      ) {
+        trip.distance_traveled = end - start;
+        trip.odometer_repair_required = false;
+      } else {
+        trip.distance_traveled = null;
+        trip.odometer_repair_required = true;
+      }
+    }
+    for (const truck of this.trucks) {
+      truck.total_distance_traveled = this.trips.reduce(
+        (sum, trip) => sum + (trip.truck_id === truck.id && trip.status === 'Completed' ? this.validTripDistance(trip) ?? 0 : 0),
+        0,
+      );
+    }
+    for (const driver of this.drivers) {
+      driver.total_distance_traveled = this.trips.reduce(
+        (sum, trip) => sum + (trip.driver_id === driver.id && trip.status === 'Completed' ? this.validTripDistance(trip) ?? 0 : 0),
+        0,
+      );
+    }
+  }
+
+  /** Rebuilds a truck's odometer chain and cumulative distance from its completed trips. */
+  private recalculateTruckDistance(truckId: string) {
+    const truckIndex = this.trucks.findIndex((t) => t.id === truckId);
+    if (truckIndex === -1) return;
+    const truck = this.trucks[truckIndex];
+
+    const completed = this.trips
+      .filter((trip) => trip.truck_id === truckId && trip.status === 'Completed')
+      .map((trip) => ({
+        trip,
+        distance: this.validTripDistance(trip),
+        time: this.tripTimelineTime(trip),
+        key: this.tripTimelineTime(trip) + '|' + trip.id,
+      }))
+      .filter((entry): entry is { trip: Trip; distance: number; time: string; key: string } => entry.distance !== null)
+      .sort((a, b) => a.key.localeCompare(b.key));
+
+    const totalDistance = completed.reduce((sum, entry) => sum + entry.distance, 0);
+
+    let baselineDate = truck.odometer_baseline_date || null;
+    let baselineMileage = truck.odometer_baseline_mileage;
+    if (!baselineDate && completed.length > 0) {
+      // First recalculation without a calibration: anchor the chain so the latest
+      // calculated reading matches the recorded current odometer.
+      baselineDate = '1970-01-01T00:00:00.000Z';
+      baselineMileage = Math.max(0, Number(truck.current_mileage ?? 0) - totalDistance);
+      truck.odometer_baseline_date = baselineDate;
+      truck.odometer_baseline_mileage = baselineMileage;
+    }
+
+    let running = Number(baselineMileage ?? truck.current_mileage ?? 0);
+    const beforeBaseline = baselineDate
+      ? completed.filter((entry) => entry.time <= baselineDate).reverse()
+      : [];
+    for (const { trip, distance } of beforeBaseline) {
+      const endMileage = running;
+      const startMileage = endMileage - distance;
+      const tripIndex = this.trips.findIndex((item) => item.id === trip.id);
+      if (tripIndex !== -1) {
+        this.trips[tripIndex] = {
+          ...this.trips[tripIndex],
+          start_mileage: startMileage >= 0 ? startMileage : undefined,
+          end_mileage: startMileage >= 0 ? endMileage : undefined,
+          updated_at: this.nowIso(),
+        };
+      }
+      running = startMileage;
+    }
+
+    running = Number(baselineMileage ?? truck.current_mileage ?? 0);
+    const afterBaseline = baselineDate
+      ? completed.filter((entry) => entry.time > baselineDate)
+      : completed;
+    for (const { trip, distance } of afterBaseline) {
+      const start = running;
+      running += distance;
+      if (running > 100_000_000) {
+        throw new Error('Calculated odometer reading cannot exceed 100,000,000 km.');
+      }
+      const tripIndex = this.trips.findIndex((item) => item.id === trip.id);
+      if (tripIndex !== -1) {
+        this.trips[tripIndex] = {
+          ...this.trips[tripIndex],
+          start_mileage: start,
+          end_mileage: running,
+          updated_at: this.nowIso(),
+        };
+      }
+    }
+
+    this.trucks[truckIndex] = {
+      ...truck,
+      current_mileage: afterBaseline.length > 0 ? running : Number(baselineMileage ?? truck.current_mileage ?? 0),
+      total_distance_traveled: totalDistance,
+      odometer_baseline_date: baselineDate ?? undefined,
+      odometer_baseline_mileage: baselineMileage,
+      updated_at: this.nowIso(),
+    };
+  }
+
+  /** Recomputes a driver's cumulative distance from completed trips assigned to them. */
+  private recalculateDriverDistance(driverId: string) {
+    const driverIndex = this.drivers.findIndex((d) => d.id === driverId);
+    if (driverIndex === -1) return;
+    const driver = this.drivers[driverIndex];
+    const total = this.trips.reduce(
+      (sum, trip) => sum + (trip.driver_id === driverId && trip.status === 'Completed' ? this.validTripDistance(trip) ?? 0 : 0),
+      0,
+    );
+    if (total !== Number(driver.total_distance_traveled ?? 0)) {
+      this.drivers[driverIndex] = { ...driver, total_distance_traveled: total, updated_at: this.nowIso() };
+    }
+  }
+
+  /** Admin-only correction path for completed trips: adjusts distance or assignment, then recalculates odometers and totals. */
+  public correctCompletedTrip(
+    id: string,
+    updates: { distance_traveled?: number | null; truck_id?: string; driver_id?: string },
+  ): Trip {
+    const index = this.trips.findIndex((t) => t.id === id);
+    if (index === -1) throw new Error(`Trip ${id} not found.`);
+    const previous = this.trips[index];
+    if (previous.status !== 'Completed') {
+      throw new Error('Only a completed trip can be corrected through the odometer correction workflow.');
+    }
+
+    const next: Partial<Trip> = {};
+    if (updates.distance_traveled !== undefined) {
+      if (updates.distance_traveled === null) {
+        next.distance_traveled = null;
+        next.odometer_repair_required = true;
+      } else {
+        next.distance_traveled = optionalInteger(updates.distance_traveled, 'Distance travelled (km)', 1, 100_000_000);
+        next.odometer_repair_required = false;
+      }
+    }
+    if (updates.truck_id !== undefined && updates.truck_id !== previous.truck_id) {
+      if (!this.trucks.some((t) => t.id === updates.truck_id)) {
+        throw new Error(`Foreign Key Violation: Truck ID ${updates.truck_id} does not exist.`);
+      }
+      next.truck_id = updates.truck_id;
+    }
+    if (updates.driver_id !== undefined && updates.driver_id !== previous.driver_id) {
+      if (!this.drivers.some((d) => d.id === updates.driver_id)) {
+        throw new Error(`Foreign Key Violation: Driver ID ${updates.driver_id} does not exist.`);
+      }
+      next.driver_id = updates.driver_id;
+    }
+
+    const merged: Trip = { ...previous, ...next, updated_at: this.nowIso() };
+    this.trips[index] = merged;
+
+    const changedKeys = (Object.keys(next) as (keyof Trip)[]).filter(
+      (key) => JSON.stringify(previous[key]) !== JSON.stringify(next[key]),
+    );
+    if (changedKeys.length > 0) {
+      this.recordAudit(
+        'corrected completed trip',
+        'trip',
+        id,
+        `Corrected completed trip ${previous.origin} to ${previous.destination}; changed ${changedKeys.join(', ')}.`,
+        {
+          before: Object.fromEntries(changedKeys.map((key) => [key, previous[key]])),
+          after: Object.fromEntries(changedKeys.map((key) => [key, merged[key]])),
+        },
+      );
+    }
+
+    this.recalculateTruckDistance(previous.truck_id);
+    if (next.truck_id) this.recalculateTruckDistance(next.truck_id);
+    this.recalculateDriverDistance(previous.driver_id);
+    if (next.driver_id) this.recalculateDriverDistance(next.driver_id);
+    return merged;
+  }
   // --- STATS & KPIS ---
   public getStats(): DatabaseStats {
     const totalTrucks = this.trucks.length;

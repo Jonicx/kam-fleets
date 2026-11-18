@@ -97,7 +97,7 @@ describe('Integration Tests - End-to-End Workflows', () => {
       expect(dbStore.getDriver(driver.id)?.status).toBe('On Trip');
 
       // Complete trip
-      dbStore.completeTrip(trip.id, 0);
+      dbStore.completeTrip(trip.id, 1);
       const completedTrips = dbStore.getTrips();
       updatedTrip = completedTrips.find((t) => t.id === trip.id);
       expect(updatedTrip?.status).toBe('Completed');
@@ -231,7 +231,7 @@ describe('Integration Tests - End-to-End Workflows', () => {
       });
 
       dbStore.updateTrip(trip.id, { status: 'Ongoing' });
-      dbStore.completeTrip(trip.id, 0);
+      dbStore.completeTrip(trip.id, 1);
 
       // Create invoice
       const invoice = dbStore.createInvoice({
@@ -287,7 +287,7 @@ describe('Integration Tests - End-to-End Workflows', () => {
       });
 
       dbStore.updateTrip(trip.id, { status: 'Ongoing' });
-      dbStore.completeTrip(trip.id, 0);
+      dbStore.completeTrip(trip.id, 1);
 
       const invoice = dbStore.createInvoice({
         trip_id: trip.id,

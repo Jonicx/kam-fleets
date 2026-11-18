@@ -4,6 +4,7 @@ import { DashboardView } from '../components/DashboardView';
 import { TripsView } from '../components/TripsView';
 import { TrucksView } from '../components/TrucksView';
 import { DriversView } from '../components/DriversView';
+import { NewTripModal } from '../components/NewTripModal';
 import { ExpensesAndPartsView } from '../components/ExpensesAndPartsView';
 import { dbStore } from '../db/store';
 import type { EnrichedTrip, DatabaseStats, Truck, Driver, Expense, SparePart, TruckServiceRecord } from '../types/database';
@@ -227,6 +228,7 @@ describe('TrucksView Component', () => {
       year: 2020,
       capacity_tons: 32,
       current_mileage: 100000,
+      total_distance_traveled: 124000,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
@@ -275,6 +277,24 @@ describe('TrucksView Component', () => {
 
     expect(screen.getAllByText('ABC 123', { exact: true }).length).toBeGreaterThan(0);
   });
+
+  it('should display the truck total distance travelled', () => {
+    render(
+      <TrucksView
+        trucks={mockTrucks}
+        serviceRecords={mockServiceRecords}
+        trips={mockEnrichedTrips}
+        onCreateTruck={vi.fn()}
+        onCreateServiceRecord={vi.fn()}
+        onUpdateServiceRecord={vi.fn()}
+        onUpdateTruckStatus={vi.fn()}
+        onDeleteTruck={vi.fn()}
+        onUpdateTruck={vi.fn()}
+      />
+    );
+
+    expect(screen.getAllByText('124,000 km')).not.toHaveLength(0);
+  });
 });
 
 describe('DriversView Component', () => {
@@ -286,6 +306,7 @@ describe('DriversView Component', () => {
       phone: '1234567890',
       status: 'Available',
       experience_years: 5,
+      total_distance_traveled: 45600,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
@@ -321,6 +342,37 @@ describe('DriversView Component', () => {
     );
 
     expect(screen.getAllByText('John Doe', { exact: true }).length).toBeGreaterThan(0);
+  });
+
+  it('should display the driver total distance travelled', () => {
+    render(
+      <DriversView
+        drivers={mockDrivers}
+        onCreateDriver={vi.fn()}
+        onUpdateDriverStatus={vi.fn()}
+        onDeleteDriver={vi.fn()}
+        onUpdateDriver={vi.fn()}
+      />
+    );
+
+    expect(screen.getAllByText('45,600 km')).not.toHaveLength(0);
+  });
+});
+
+describe('NewTripModal odometer fields', () => {
+  it('does not ask for an odometer or trip distance while planning a trip', () => {
+    render(
+      <NewTripModal
+        trucks={[]}
+        drivers={[]}
+        clients={[]}
+        onClose={vi.fn()}
+        onCreateTrip={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByLabelText(/odometer/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/distance travelled/i)).not.toBeInTheDocument();
   });
 });
 

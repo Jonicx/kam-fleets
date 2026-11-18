@@ -204,6 +204,7 @@ export const DriversView: React.FC<DriversViewProps> = ({
               <dl className="mt-3 grid grid-cols-2 gap-2 rounded-lg bg-slate-50 px-3 py-2.5 text-xs">
                 <div className="min-w-0"><dt className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Phone</dt><dd className="mt-0.5 truncate"><a href={`tel:${driver.phone}`} className="font-semibold text-blue-700">{driver.phone}</a></dd></div>
                 <div className="min-w-0 border-l border-slate-200 pl-3"><dt className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Experience</dt><dd className="mt-0.5 font-semibold text-slate-800">{driver.experience_years || 1} Years</dd></div>
+                <div className="col-span-2 border-t border-slate-200 pt-2"><dt className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Total distance travelled</dt><dd className="mt-0.5 font-mono font-semibold text-slate-800">{(driver.total_distance_traveled ?? 0).toLocaleString()} km</dd></div>
               </dl>
               <div className="mt-3 flex flex-wrap items-center gap-1.5">
                 {driver.status !== 'On Trip' && (
@@ -229,7 +230,7 @@ export const DriversView: React.FC<DriversViewProps> = ({
           )}
         </ul>
         <div className="hidden overflow-x-auto pb-1 [scrollbar-width:thin] md:block">
-          <table className="w-full min-w-[960px] text-left text-[13px] text-slate-600 md:min-w-0 md:text-xs">
+          <table className="w-full min-w-[1080px] text-left text-[13px] text-slate-600 md:min-w-0 md:text-xs">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[11px] font-bold tracking-wider md:text-[10px]">
               <tr>
                 <th className="py-3.5 px-3 sm:px-4">Full Name</th>
@@ -237,6 +238,7 @@ export const DriversView: React.FC<DriversViewProps> = ({
                 <th className="py-3.5 px-3 sm:px-4">Phone Number</th>
                 <th className="py-3.5 px-3 sm:px-4">Status</th>
                 <th className="py-3.5 px-3 sm:px-4">Commercial Experience</th>
+                <th className="py-3.5 px-3 sm:px-4">Total distance travelled</th>
                 <th className="py-3.5 px-3 text-right sm:px-4">Actions</th>
               </tr>
             </thead>
@@ -273,6 +275,9 @@ export const DriversView: React.FC<DriversViewProps> = ({
                   </td>
                   <td className="py-4 px-3 font-semibold text-slate-700 sm:px-4">
                     {driver.experience_years ? `${driver.experience_years} Years` : '1 Year'}
+                  </td>
+                  <td className="py-4 px-3 font-mono font-semibold text-slate-700 sm:px-4">
+                    {(driver.total_distance_traveled ?? 0).toLocaleString()} km
                   </td>
                   <td className="py-4 px-3 text-right sm:px-4">
                     <div className="flex items-center justify-end gap-1.5">
@@ -313,7 +318,7 @@ export const DriversView: React.FC<DriversViewProps> = ({
                 </tr>
               ))}
               {filteredDrivers.length === 0 && (
-                <tr><td colSpan={6} role="status" className="px-4 py-10 text-center text-sm text-slate-500">
+                <tr><td colSpan={7} role="status" className="px-4 py-10 text-center text-sm text-slate-500">
                   {drivers.length ? 'No drivers match the current search or status filter.' : 'No drivers have been added yet.'}
                 </td></tr>
               )}

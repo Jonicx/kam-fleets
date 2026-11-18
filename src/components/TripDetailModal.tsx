@@ -28,7 +28,7 @@ interface TripDetailModalProps {
   trip: EnrichedTrip;
   onClose: () => void;
   onOpenUpdateModal?: (tripId: string) => void;
-  onUpdateStatus: (tripId: string, status: TripStatus, endMileage?: number) => void;
+  onUpdateStatus: (tripId: string, status: TripStatus, distanceTraveled?: number) => void;
   onAddDelayLog: (
     tripId: string,
     log: {
@@ -98,15 +98,11 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
 
   const [modalError, setModalError] = useState<string | null>(null);
   const [showCompleteConfirmModal, setShowCompleteConfirmModal] = useState(false);
-  const [completionMileage, setCompletionMileage] = useState('');
-  const [completionMileageError, setCompletionMileageError] = useState('');
+  const [completionDistance, setCompletionDistance] = useState('');
+  const [completionDistanceError, setCompletionDistanceError] = useState('');
   const completionDialogRef = useModalAccessibility(
     () => setShowCompleteConfirmModal(false),
     showCompleteConfirmModal,
-  );
-  const startingMileage = Math.max(
-    Number(trip.start_mileage ?? 0),
-    Number(trip.truck?.current_mileage ?? 0),
   );
 
   const isCompleted = trip.status === 'Completed';
@@ -902,17 +898,21 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-500">Current odometer:</span>
-                        <span className="font-mono text-slate-800">{trip.truck.current_mileage?.toLocaleString()} km</span>
+                        <span className="font-mono text-slate-800">{(trip.truck.current_mileage ?? 0).toLocaleString()} km</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Total distance travelled:</span>
+                        <span className="font-mono text-slate-800">{(trip.truck.total_distance_traveled ?? 0).toLocaleString()} km</span>
                       </div>
                       {trip.start_mileage !== undefined && (
                         <div className="flex justify-between">
-                          <span className="text-slate-500">Trip start odometer:</span>
+                          <span className="text-slate-500">Calculated trip start odometer:</span>
                           <span className="font-mono text-slate-800">{trip.start_mileage.toLocaleString()} km</span>
                         </div>
                       )}
                       {trip.end_mileage !== undefined && (
                         <div className="flex justify-between">
-                          <span className="text-slate-500">Trip end odometer:</span>
+                          <span className="text-slate-500">Calculated trip end odometer:</span>
                           <span className="font-mono text-slate-800">{trip.end_mileage.toLocaleString()} km</span>
                         </div>
                       )}
@@ -950,6 +950,10 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
                         <span className="text-slate-500">Commercial Experience:</span>
                         <span className="font-medium text-slate-800">{trip.driver.experience_years} Years</span>
                       </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Total distance travelled:</span>
+                        <span className="font-mono text-slate-800">{(trip.driver.total_distance_traveled ?? 0).toLocaleString()} km</span>
+                      </div>
                     </div>
                   ) : (
                     <p className="text-xs text-slate-400">No driver associated with this trip ID.</p>
@@ -968,6 +972,10 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
                   <div>
                     <span className="text-slate-400 block text-[10px] uppercase">Scheduled Departure</span>
                     <span className="font-medium text-slate-800">{new Date(trip.scheduled_start).toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase">Distance Travelled</span>
+                    <span className="font-medium text-slate-800">{trip.distance_traveled == null ? 'Not recorded' : `${trip.distance_traveled.toLocaleString()} km`}</span>
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[10px] uppercase">Scheduled Arrival</span>
@@ -1013,8 +1021,8 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
             {trip.status === 'Ongoing' && (
               <button
                 onClick={() => {
-                  setCompletionMileage('');
-                  setCompletionMileageError('');
+                  setCompletionDistance('');
+                  setCompletionDistanceError('');
                   setShowCompleteConfirmModal(true);
                 }}
                 className="flex w-full items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-bold text-white transition hover:bg-emerald-500 sm:w-auto sm:text-xs"
@@ -1049,25 +1057,26 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
               </p>
             </div>
             <label className="block text-xs font-semibold text-slate-700">
-              Final odometer reading (km) *
+              Distance travelled (km) *
               <input
                 type="number"
                 required
-                min={startingMileage}
+                min={1}
+                max={100_000_000}
                 step="1"
                 inputMode="numeric"
-                value={completionMileage}
+                value={completionDistance}
                 onChange={(event) => {
-                  setCompletionMileage(event.target.value);
-                  setCompletionMileageError('');
+                  setCompletionDistance(event.target.value);
+                  setCompletionDistanceError('');
                 }}
-                aria-label="Final odometer reading in kilometers"
+                aria-label="Distance travelled in kilometers"
                 className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
               />
               <span className="mt-1 block text-[11px] font-normal text-slate-500">
-                Must be at least the truck&apos;s current reading of {startingMileage.toLocaleString()} km.
+                Enter the total kilometres for the trip, including the return journey if applicable.
               </span>
-              {completionMileageError && <span role="alert" className="mt-1 block text-[11px] font-semibold text-rose-700">{completionMileageError}</span>}
+              {completionDistanceError && <span role="alert" className="mt-1 block text-[11px] font-semibold text-rose-700">{completionDistanceError}</span>}
             </label>
             <dl className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs">
               <div className="flex justify-between gap-3"><dt>Budget estimate</dt><dd className="font-semibold">{formatTsh(budget)}</dd></div>
@@ -1085,7 +1094,7 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
               Budget variance is not billed revenue or accounting profit. Completed-trip records cannot be changed.
             </p>
             <p className="rounded-lg bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-900">
-              The final odometer is saved to this trip and becomes the truck&apos;s current odometer reading.
+              The system calculates the trip&apos;s odometer readings from this distance.
             </p>
             <div className="flex flex-col-reverse justify-end gap-2 sm:flex-row">
               <button
@@ -1098,13 +1107,13 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  const finalMileage = Number(completionMileage);
-                  if (!completionMileage.trim() || !Number.isInteger(finalMileage) || finalMileage < startingMileage) {
-                    setCompletionMileageError(`Enter a whole-number odometer reading of at least ${startingMileage.toLocaleString()} km.`);
+                  const distance = Number(completionDistance);
+                  if (!completionDistance.trim() || !Number.isInteger(distance) || distance <= 0 || distance > 100_000_000) {
+                    setCompletionDistanceError('Enter a whole-number trip distance between 1 and 100,000,000 km.');
                     return;
                   }
                   try {
-                    onUpdateStatus(trip.id, 'Completed', finalMileage);
+                    onUpdateStatus(trip.id, 'Completed', distance);
                     setShowCompleteConfirmModal(false);
                     onClose();
                   } catch (completionError) {

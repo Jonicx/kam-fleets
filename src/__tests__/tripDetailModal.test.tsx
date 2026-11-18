@@ -29,7 +29,7 @@ const trip: EnrichedTrip = {
 };
 
 describe('TripDetailModal trip completion', () => {
-  it('confirms completion and reports the finalized status change', () => {
+  it('submits the trip distance when confirming completion', () => {
     const onClose = vi.fn();
     const onUpdateStatus = vi.fn();
 
@@ -50,16 +50,16 @@ describe('TripDetailModal trip completion', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Complete Trip' }));
     expect(screen.getByRole('dialog', { name: 'Complete and finalize this trip?' })).toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Final odometer reading in kilometers' }), {
-      target: { value: '0' },
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Distance travelled in kilometers' }), {
+      target: { value: '1426' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Confirm & Finalize Trip' }));
 
-    expect(onUpdateStatus).toHaveBeenCalledWith(trip.id, 'Completed', 0);
+    expect(onUpdateStatus).toHaveBeenCalledWith(trip.id, 'Completed', 1426);
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it('does not complete a trip when the final odometer is below its start reading', () => {
+  it('rejects a zero trip distance', () => {
     const onUpdateStatus = vi.fn();
     const tripWithTruck = {
       ...trip,
@@ -89,12 +89,12 @@ describe('TripDetailModal trip completion', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Complete Trip' }));
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Final odometer reading in kilometers' }), {
-      target: { value: '99999' },
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Distance travelled in kilometers' }), {
+      target: { value: '0' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Confirm & Finalize Trip' }));
 
     expect(onUpdateStatus).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert')).toHaveTextContent('at least 100,000 km');
+    expect(screen.getByRole('alert')).toHaveTextContent('between 1 and 100,000,000 km');
   });
 });

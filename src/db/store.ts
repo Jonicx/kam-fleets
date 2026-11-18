@@ -126,6 +126,7 @@ class DatabaseStore extends FleetDomain {
       this.pendingCommands = [];
       this.remoteVersion = 0;
     }
+    this.normalizeOdometerData();
   }
 
   private writeToLocalStorage() {
@@ -359,7 +360,7 @@ class DatabaseStore extends FleetDomain {
     let rows: any[] = [];
 
     if (lower.startsWith('select') && lower.includes('from trucks')) {
-      columns = ['id', 'license_plate', 'model', 'status', 'year', 'capacity_tons', 'current_mileage'];
+      columns = ['id', 'license_plate', 'model', 'status', 'year', 'capacity_tons', 'current_mileage', 'total_distance_traveled'];
       rows = this.trucks.map((t) => ({
         id: t.id.slice(0, 8) + '...',
         license_plate: t.license_plate,
@@ -368,9 +369,10 @@ class DatabaseStore extends FleetDomain {
         year: t.year || 'N/A',
         capacity_tons: `${t.capacity_tons} T`,
         current_mileage: `${t.current_mileage?.toLocaleString()} km`,
+        total_distance_traveled: `${(t.total_distance_traveled ?? 0).toLocaleString()} km`,
       }));
     } else if (lower.startsWith('select') && lower.includes('from drivers')) {
-      columns = ['id', 'full_name', 'license_number', 'phone', 'status', 'experience_years'];
+      columns = ['id', 'full_name', 'license_number', 'phone', 'status', 'experience_years', 'total_distance_traveled'];
       rows = this.drivers.map((d) => ({
         id: d.id.slice(0, 8) + '...',
         full_name: d.full_name,
@@ -378,10 +380,11 @@ class DatabaseStore extends FleetDomain {
         phone: d.phone,
         status: d.status,
         experience_years: `${d.experience_years} yrs`,
+        total_distance_traveled: `${(d.total_distance_traveled ?? 0).toLocaleString()} km`,
       }));
     } else if (lower.startsWith('select') && lower.includes('from trips') && lower.includes('join')) {
       // Joined trip report
-      columns = ['trip_id', 'origin', 'destination', 'truck_plate', 'driver_name', 'status', 'budget_allocated', 'total_spent'];
+      columns = ['trip_id', 'origin', 'destination', 'truck_plate', 'driver_name', 'status', 'distance_traveled', 'budget_allocated', 'total_spent'];
       rows = this.getEnrichedTrips().map((t) => ({
         trip_id: t.id.slice(0, 8) + '...',
         origin: t.origin,
@@ -389,11 +392,12 @@ class DatabaseStore extends FleetDomain {
         truck_plate: t.truck?.license_plate || 'Unassigned',
         driver_name: t.driver?.full_name || 'Unassigned',
         status: t.status,
+        distance_traveled: t.distance_traveled == null ? '—' : `${t.distance_traveled.toLocaleString()} km`,
         budget_allocated: `$${t.budget_allocated.toLocaleString()}`,
         total_spent: `$${t.total_spent.toLocaleString()}`,
       }));
     } else if (lower.startsWith('select') && lower.includes('from trips')) {
-      columns = ['id', 'truck_id', 'driver_id', 'origin', 'destination', 'status', 'budget_allocated'];
+      columns = ['id', 'truck_id', 'driver_id', 'origin', 'destination', 'status', 'distance_traveled', 'budget_allocated'];
       rows = this.trips.map((t) => ({
         id: t.id.slice(0, 8) + '...',
         truck_id: t.truck_id.slice(0, 8) + '...',
@@ -401,6 +405,7 @@ class DatabaseStore extends FleetDomain {
         origin: t.origin,
         destination: t.destination,
         status: t.status,
+        distance_traveled: t.distance_traveled == null ? '—' : `${t.distance_traveled.toLocaleString()} km`,
         budget_allocated: `$${t.budget_allocated.toLocaleString()}`,
       }));
     } else if (lower.startsWith('select') && lower.includes('from expenses') && lower.includes('group by expense_type')) {
