@@ -188,8 +188,8 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
   const isOver = trip.is_over_budget;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-start justify-center p-2 sm:items-start sm:p-4">
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="trip-detail-title" tabIndex={-1} className="modal-readable bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] min-w-0">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/60 p-2 backdrop-blur-xs sm:items-center sm:p-4">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="trip-detail-title" tabIndex={-1} className="modal-readable flex max-h-[92dvh] w-full min-w-0 max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
         {/* Header */}
         <div className="bg-slate-900 text-white p-3 sm:p-5 border-b border-slate-800">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -234,9 +234,9 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
 
         {/* Error Banner */}
         {modalError && (
-          <div className="bg-rose-50 border-b border-rose-200 text-rose-800 px-5 py-2 text-xs font-semibold flex items-center justify-between">
-            <span>{modalError}</span>
-            <button onClick={() => setModalError(null)} className="text-rose-500 hover:text-rose-700">
+          <div className="flex items-start justify-between gap-3 border-b border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800 sm:px-5">
+            <span className="min-w-0 break-words">{modalError}</span>
+            <button onClick={() => setModalError(null)} className="shrink-0 text-rose-500 hover:text-rose-700">
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -268,14 +268,14 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
         )}
 
         {/* Tab Navigation */}
-        <div className="flex overflow-x-auto overflow-y-hidden  border-b border-slate-200 bg-white px-2 py-2 sm:px-5 sm:py-3 shadow-md drop-shadow-xs [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          <div className="flex min-w-max gap-2 py-2 sm:gap-4">
+        <div className="shrink-0 overflow-x-auto overflow-y-hidden border-b border-slate-200 bg-white px-2 sm:px-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex min-h-12 min-w-max items-center gap-1 sm:min-w-full sm:justify-between sm:gap-2">
             <button
               onClick={() => setActiveTab('stats')}
-              className={`whitespace-nowrap px-2 py-2 text-[10px] font-bold transition sm:px-3 mb-3 sm:text-xs ${
+              className={`inline-flex shrink-0 items-center whitespace-nowrap border-b-2 px-2 py-3 text-[10px] font-bold transition sm:px-3 sm:text-xs ${
                 activeTab === 'stats'
-                  ? ' text-emerald-600'
-                  : ' text-slate-500 hover:text-slate-800'
+                  ? 'border-emerald-500 text-emerald-700'
+                  : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800'
               }`}
             >
               <span className="flex items-center gap-1.5">
@@ -286,10 +286,10 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
 
             <button
               onClick={() => setActiveTab('delays')}
-              className={`whitespace-nowrap px-2 py-2 text-[10px] font-bold transition sm:px-3 mb-3 sm:text-xs ${
+              className={`inline-flex shrink-0 items-center whitespace-nowrap border-b-2 px-2 py-3 text-[10px] font-bold transition sm:px-3 sm:text-xs ${
                 activeTab === 'delays'
-                  ? ' text-amber-500'
-                  : ' text-slate-500 hover:text-slate-800'
+                  ? 'border-amber-500 text-amber-700'
+                  : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800'
               }`}
             >
               <span className="flex items-center gap-1.5">
@@ -300,10 +300,10 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
 
             <button
               onClick={() => setActiveTab('expenses')}
-              className={`whitespace-nowrap px-2 py-2 text-[10px] font-bold transition sm:px-3 mb-3 sm:text-xs ${
+              className={`inline-flex shrink-0 items-center whitespace-nowrap border-b-2 px-2 py-3 text-[10px] font-bold transition sm:px-3 sm:text-xs ${
                 activeTab === 'expenses'
-                  ? ' text-red-600'
-                  : ' text-slate-500 hover:text-slate-800'
+                  ? 'border-rose-500 text-rose-700'
+                  : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800'
               }`}
             >
               <span className="flex items-center gap-1.5">
@@ -314,10 +314,10 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
 
             <button
               onClick={() => setActiveTab('spares')}
-              className={`whitespace-nowrap px-2 py-2 text-[10px] font-bold transition mb-3 sm:px-3 sm:text-xs ${
+              className={`inline-flex shrink-0 items-center whitespace-nowrap border-b-2 px-2 py-3 text-[10px] font-bold transition sm:px-3 sm:text-xs ${
                 activeTab === 'spares'
-                  ? ' text-amber-700'
-                  : ' text-slate-500 hover:text-slate-800'
+                  ? 'border-amber-600 text-amber-800'
+                  : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800'
               }`}
             >
               <span className="flex items-center gap-1.5">
@@ -328,10 +328,10 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
 
             <button
               onClick={() => setActiveTab('overview')}
-              className={`whitespace-nowrap px-2 py-2 text-[10px] font-bold transition mb-3 sm:px-3 sm:text-xs ${
+              className={`inline-flex shrink-0 items-center whitespace-nowrap border-b-2 px-2 py-3 text-[10px] font-bold transition sm:px-3 sm:text-xs ${
                 activeTab === 'overview'
-                  ? ' text-blue-600'
-                  : ' text-slate-500 hover:text-slate-800'
+                  ? 'border-blue-500 text-blue-700'
+                  : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800'
               }`}
             >
               <span className="flex items-center gap-1.5">
@@ -343,7 +343,7 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
         </div>
 
         {/* Tab Body Content */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-5">
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-3 sm:p-5">
           {/* TAB 1: STATS */}
           {activeTab === 'stats' && (
             <div className="space-y-4">
@@ -964,7 +964,7 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
               {/* Trip Metadata Box */}
               <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2 text-xs">
                 <span className="font-bold text-slate-900 block">Schedule &amp; Trip Notes</span>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                   <div>
                     <span className="text-slate-400 block text-[10px] uppercase">Client</span>
                     <span className="font-medium text-slate-800">{trip.client?.name ?? 'No client assigned'}</span>
@@ -994,7 +994,10 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="text-xs text-slate-500">
+            <strong className="text-green-700 uppercase">{trip.status}</strong>
+          </div>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             {trip.status === 'Ongoing' && onOpenUpdateModal && (
               <button
@@ -1002,7 +1005,7 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
                   onClose();
                   onOpenUpdateModal(trip.id);
                 }}
-                className="flex w-full items-center justify-center gap-1 rounded-lg bg-amber-600 px-3 py-2 text-[11px] font-bold text-white transition shadow-xs hover:bg-amber-400 sm:w-auto sm:text-xs"
+                className="flex w-full items-center justify-center gap-1 rounded-lg bg-amber-600 px-3 py-2 text-xs font-bold text-white transition shadow-xs hover:bg-amber-500 sm:w-auto"
               >
                 <Wrench className="h-3.5 w-3.5" />
                 <span>Update Trip</span>
@@ -1013,7 +1016,7 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
             {trip.status === 'Planned' && (
               <button
                 onClick={() => onUpdateStatus(trip.id, 'Ongoing')}
-                className="w-full rounded-lg bg-blue-600 px-3 py-2 text-[11px] font-bold text-white transition hover:bg-blue-500 sm:w-auto sm:text-xs"
+                className="w-full rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-blue-500 sm:w-auto"
               >
                 Start Trip
               </button>
@@ -1025,19 +1028,19 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
                   setCompletionDistanceError('');
                   setShowCompleteConfirmModal(true);
                 }}
-                className="flex w-full items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-bold text-white transition hover:bg-emerald-500 sm:w-auto sm:text-xs"
+                className="flex w-full items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-500 sm:w-auto"
               >
                 <CheckCircle className="h-3.5 w-3.5" />
                 <span>Complete Trip</span>
               </button>
             )}
+            <button
+              onClick={onClose}
+              className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-100 sm:w-auto"
+            >
+              Close
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="w-full rounded-lg bg-red-600 px-4 py-2 text-[11px] font-bold text-white transition hover:bg-slate-800 sm:w-auto sm:text-xs"
-          >
-            Close
-          </button>
         </div>
       </div>
       {showCompleteConfirmModal && (

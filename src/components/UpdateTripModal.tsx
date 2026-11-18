@@ -333,34 +333,30 @@ export const UpdateTripModal: React.FC<UpdateTripModalProps> = ({
   );
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex items-start justify-center p-3 sm:items-start sm:p-4">
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="update-trip-modal-title" tabIndex={-1} className="modal-readable bg-white w-full max-w-5xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/70 p-2 backdrop-blur-xs sm:items-center sm:p-4">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="update-trip-modal-title" tabIndex={-1} className="modal-readable flex max-h-[92dvh] w-full min-w-0 max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
         {/* Top Header */}
-        <div className="bg-slate-900 text-white p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800">
-          <div>
+        <div className="flex flex-col justify-between gap-3 border-b border-slate-800 bg-slate-900 p-3 text-white sm:flex-row sm:items-center sm:gap-4 sm:p-5">
+          <div className="min-w-0">
 
-            <h2 id="update-trip-modal-title" className="text-lg sm:text-2xl font-extrabold tracking-tight mb-2.5 flex items-center space-x-2 text-white">
-              <span>{trip.origin}</span>
+            <h2 id="update-trip-modal-title" className="mb-2.5 flex min-w-0 flex-wrap items-center gap-x-2 text-base font-extrabold tracking-tight text-white sm:text-2xl">
+              <span className="break-words">{trip.origin}</span>
               <span className="text-gray-400 font-bold">→</span>
-              <span>{trip.destination}</span>
+              <span className="break-words">{trip.destination}</span>
             </h2>
 
-            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300 mt-1">
-              <span className="flex items-center space-x-1.5 text-slate-300">
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-slate-300">
+              <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-slate-300">
                 <TruckIcon className="h-3.5 w-3.5 text-amber-400 shrink-0" />
                 <strong className="text-white">{trip.truck?.license_plate || 'Unassigned'}</strong>
                 <span className="text-slate-400">({trip.truck?.model || 'Truck'})</span>
               </span>
 
-              <span aria-hidden="true" className="text-slate-600">·</span>
-
-              <span className="flex items-center space-x-1.5 text-slate-300">
+              <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-slate-300">
                 <User className="h-3.5 w-3.5 text-blue-400 shrink-0" />
                 <strong className="text-white">{trip.driver?.full_name || 'Unassigned'}</strong>
                 <span className="text-slate-400">({trip.driver?.phone || 'No phone'})</span>
               </span>
-
-              <span aria-hidden="true" className="text-slate-600">·</span>
 
               <span className="text-slate-400">
                 Cargo: <strong className="text-slate-200">{trip.cargo_type || 'General Cargo'}</strong>
@@ -387,12 +383,12 @@ export const UpdateTripModal: React.FC<UpdateTripModalProps> = ({
 
         {/* Form Validation Error Banner */}
         {formError && (
-          <div className="bg-rose-50 border-b border-rose-200 text-rose-800 px-5 py-2.5 text-xs font-semibold flex items-center justify-between">
-            <span className="flex items-center space-x-2">
+          <div className="flex items-start justify-between gap-3 border-b border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-semibold text-rose-800 sm:px-5">
+            <span className="flex min-w-0 items-start gap-2 break-words">
               <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
               <span>{formError}</span>
             </span>
-            <button onClick={() => setFormError(null)} className="text-rose-500 hover:text-rose-700">
+            <button onClick={() => setFormError(null)} className="shrink-0 text-rose-500 hover:text-rose-700">
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -540,7 +536,7 @@ export const UpdateTripModal: React.FC<UpdateTripModalProps> = ({
         </div>
 
         {/* Tab Body */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-5">
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-3 sm:p-5">
           {/* TAB 1: LOG MID-TRIP EXPENSES */}
           {activeConsoleTab === 'expenses' && (
             <div className="min-h-[360px] space-y-4 sm:min-h-[420px] sm:space-y-6">
@@ -1271,12 +1267,12 @@ export const UpdateTripModal: React.FC<UpdateTripModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="bg-slate-50 px-5 py-3 border-t border-slate-200 flex items-center justify-between">
+        <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="text-xs text-slate-500">
-            <strong className="text-green-700 animate-pulse uppercase">{trip.status}</strong>
+            <strong className="text-green-700 uppercase">{trip.status}</strong>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             {trip.status === 'Planned' && (
               <button
                 type="button"
@@ -1288,7 +1284,7 @@ export const UpdateTripModal: React.FC<UpdateTripModalProps> = ({
                     setFormError(error instanceof Error ? error.message : 'The trip could not be started.');
                   }
                 }}
-                className="px-4 py-2 rounded-lg text-[11px] font-bold bg-blue-600 hover:bg-blue-500 text-white transition"
+                className="w-full rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-blue-500 sm:w-auto"
               >
                 Start Trip
               </button>
@@ -1301,17 +1297,18 @@ export const UpdateTripModal: React.FC<UpdateTripModalProps> = ({
                   setCompletionDistanceError('');
                   setShowCompleteConfirm(true);
                 }}
-                className="px-4 py-2 rounded-lg text-[11px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition"
+                className="w-full rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-emerald-500 sm:w-auto"
               >
                 Complete Trip
               </button>
             )}
             <button
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 sm:w-auto"
               aria-label="Close"
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
+              <span>Close</span>
             </button>
           </div>
         </div>
