@@ -1,5 +1,6 @@
 import { createAuthClient } from '@neondatabase/auth';
 import type { DatabaseSnapshot } from './db/store.ts';
+import { CommandRejectedError } from './db/store.ts';
 import type { AppRole } from './db/domain.ts';
 import type { AuditLog } from './types/database.ts';
 import type { AdminNotification } from './types/notifications.ts';
@@ -104,6 +105,7 @@ async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   });
   if (!response.ok) {
     const message = await getResponseError(response);
+    if (response.status === 422) throw new CommandRejectedError(message);
     throw new Error(message);
   }
   return response.json() as Promise<T>;

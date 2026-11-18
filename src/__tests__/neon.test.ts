@@ -9,7 +9,8 @@ vi.mock('@neondatabase/auth', () => ({
   createAuthClient: () => authMocks,
 }));
 
-import { fetchCurrentMember } from '../neon.ts';
+import { CommandRejectedError } from '../db/store.ts';
+import { fetchCurrentMember, teamBackend } from '../neon.ts';
 
 describe('Neon API authentication', () => {
   beforeEach(() => {
@@ -46,5 +47,17 @@ describe('Neon API authentication', () => {
 
     await expect(fetchCurrentMember()).rejects.toThrow('Could not obtain an access token');
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('classifies a rejected command as a validation error, not a connection failure', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'Distance travelled is required.' }), {
+        status: 422,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+
+    await expect(teamBackend.sendCommand({ command: 'completeTrip', args: [] }))
+      .rejects.toBeInstanceOf(CommandRejectedError);
   });
 });

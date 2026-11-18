@@ -88,6 +88,21 @@ deploying a Function build that enforces the database-backed API limits.
 Migration 0011 adds notification state, push subscriptions, and delivery
 retries. Apply it before deploying the matching `hello.ts` Function.
 
+## Deploying API changes
+
+The GitHub Pages workflow deploys only the static frontend; it does not deploy
+the Neon Function. After applying required migrations, deploy the API from the
+linked project and branch with:
+
+```powershell
+neon.cmd functions deploy hello --src hello.ts
+neon.cmd functions get hello
+```
+
+Confirm the Function URL matches `VITE_NEON_FUNCTION_HELLO_BASE_URL` in the
+GitHub Pages Actions variables, then rebuild and redeploy the frontend after
+frontend changes.
+
 ## Admin notification delivery
 
 The notification center stores account approvals, completed trips missing an
