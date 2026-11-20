@@ -158,6 +158,7 @@ describe('FleetDomain - Driver Management', () => {
       expect(driver.full_name).toBe('John Doe');
       expect(driver.license_number).toBe('LIC123');
       expect(driver.status).toBe('Available');
+      expect(driver.total_distance_traveled).toBe(0);
       expect(driver.id).toBeDefined();
     });
 

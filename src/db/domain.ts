@@ -746,6 +746,7 @@ export class FleetDomain {
     const newDriver = {
       ...fields,
       id: this.newId(),
+      total_distance_traveled: 0,
       created_at: now,
       updated_at: now,
     } as Driver;

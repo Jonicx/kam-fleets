@@ -105,7 +105,7 @@ async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   });
   if (!response.ok) {
     const message = await getResponseError(response);
-    if (response.status === 422) throw new CommandRejectedError(message);
+    if (response.status === 409 || response.status === 422) throw new CommandRejectedError(message);
     throw new Error(message);
   }
   return response.json() as Promise<T>;

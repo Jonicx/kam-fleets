@@ -60,4 +60,16 @@ describe('Neon API authentication', () => {
     await expect(teamBackend.sendCommand({ command: 'completeTrip', args: [] }))
       .rejects.toBeInstanceOf(CommandRejectedError);
   });
+
+  it('classifies database constraint conflicts as rejected commands, not connection failures', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'The database rejected this change.' }), {
+        status: 409,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+
+    await expect(teamBackend.sendCommand({ command: 'createDriver', args: [] }))
+      .rejects.toBeInstanceOf(CommandRejectedError);
+  });
 });
