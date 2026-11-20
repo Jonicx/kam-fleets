@@ -25,7 +25,6 @@ describe('FleetDomain - Truck Management', () => {
         status: 'Available',
         year: 2020,
         capacity_tons: 10,
-        current_mileage: 5000,
       });
 
       expect(truck).toBeDefined();
@@ -82,40 +81,9 @@ describe('FleetDomain - Truck Management', () => {
 
       const updated = domain.updateTruck(truck.id, {
         status: 'Maintenance',
-        current_mileage: 10000,
       });
 
       expect(updated.status).toBe('Maintenance');
-      expect(updated.current_mileage).toBe(10000);
-    });
-
-    it('does not allow recalibrating the odometer while a truck is on an ongoing trip', () => {
-      const truck = domain.createTruck({
-        license_plate: 'ODO 123',
-        model: 'Odometer Truck',
-        status: 'Available',
-        current_mileage: 1000,
-      });
-      const driver = domain.createDriver({
-        full_name: 'Odometer Driver',
-        license_number: 'ODO-LIC',
-        phone: '1234567890',
-        status: 'Available',
-      });
-      const trip = domain.createTrip({
-        truck_id: truck.id,
-        driver_id: driver.id,
-        origin: 'A',
-        destination: 'B',
-        scheduled_start: new Date().toISOString(),
-        scheduled_end: new Date(Date.now() + 86400000).toISOString(),
-        budget_allocated: 1000,
-        driver_pay: 0,
-      });
-      domain.updateTrip(trip.id, { status: 'Ongoing' });
-
-      expect(() => domain.updateTruck(truck.id, { current_mileage: 900 })).toThrow('cannot be recalibrated');
-      expect(domain.getTruck(truck.id)?.current_mileage).toBe(1000);
     });
 
     it('should throw error for non-existent truck', () => {
@@ -558,18 +526,18 @@ describe('FleetDomain - Trip Management', () => {
 
       const updatedTruck = domain.getTruck(truck.id);
       expect(updatedTruck?.status).toBe('Available');
-      expect(updatedTruck?.current_mileage).toBe(1);
+      expect(updatedTruck?.total_distance_traveled).toBe(1);
 
       const updatedDriver = domain.getDriver(driver.id);
       expect(updatedDriver?.status).toBe('Available');
+      expect(updatedDriver?.total_distance_traveled).toBe(1);
     });
 
-    it('records trip distance and calculates the final odometer reading', () => {
+    it('records trip distance and updates truck and driver cumulative distance', () => {
       const truck = domain.createTruck({
         license_plate: 'MILE 123',
         model: 'Mileage Truck',
         status: 'Available',
-        current_mileage: 400,
       });
       const driver = domain.createDriver({
         full_name: 'Mileage Driver',
@@ -588,26 +556,21 @@ describe('FleetDomain - Trip Management', () => {
         driver_pay: 0,
       });
 
-      expect(trip.start_mileage).toBeUndefined();
-      expect(domain.getTruck(truck.id)?.current_mileage).toBe(400);
       domain.updateTrip(trip.id, { status: 'Ongoing' });
-      expect(domain.getTrips().find((item) => item.id === trip.id)?.start_mileage).toBe(400);
       expect(() => domain.updateTrip(trip.id, { status: 'Completed', distance_traveled: 0 })).toThrow('Distance travelled');
       const completed = domain.completeTrip(trip.id, 220);
 
       expect(completed.distance_traveled).toBe(220);
-      expect(completed.start_mileage).toBe(400);
-      expect(completed.end_mileage).toBe(620);
-      expect(domain.getTruck(truck.id)?.current_mileage).toBe(620);
+      expect(domain.getTruck(truck.id)?.total_distance_traveled).toBe(220);
+      expect(domain.getDriver(driver.id)?.total_distance_traveled).toBe(220);
     });
 
-    it('recalculates historical trip odometers from scheduled dates and updates cumulative totals', () => {
+    it('recalculates cumulative totals from completed trip distances', () => {
       const now = Date.now();
       const truck = domain.createTruck({
         license_plate: 'HIST 123',
         model: 'Historical Truck',
         status: 'Available',
-        current_mileage: 2000,
       });
       const driver = domain.createDriver({
         full_name: 'Historical Driver',
@@ -634,11 +597,9 @@ describe('FleetDomain - Trip Management', () => {
       }
 
       const trips = domain.getTrips();
-      const earlier = trips.find((trip) => trip.id === earlierTrip.id);
-      const later = trips.find((trip) => trip.id === laterTrip.id);
-      expect(earlier).toMatchObject({ start_mileage: 800, end_mileage: 1500 });
-      expect(later).toMatchObject({ start_mileage: 1500, end_mileage: 2000 });
-      expect(domain.getTruck(truck.id)).toMatchObject({ current_mileage: 2000, total_distance_traveled: 1200 });
+      expect(trips.find((trip) => trip.id === earlierTrip.id)?.distance_traveled).toBe(700);
+      expect(trips.find((trip) => trip.id === laterTrip.id)?.distance_traveled).toBe(500);
+      expect(domain.getTruck(truck.id)?.total_distance_traveled).toBe(1200);
       expect(domain.getDriver(driver.id)?.total_distance_traveled).toBe(1200);
     });
 
@@ -656,7 +617,7 @@ describe('FleetDomain - Trip Management', () => {
         driver_pay: 0,
       });
 
-      expect(() => domain.updateTrip(trip.id, { status: 'Completed', end_mileage: 1 })).toThrow('Only an ongoing trip can be completed');
+      expect(() => domain.updateTrip(trip.id, { status: 'Completed', distance_traveled: 1 })).toThrow('Only an ongoing trip can be completed');
       expect(domain.getTrips().find((item) => item.id === trip.id)?.status).toBe('Planned');
     });
   });

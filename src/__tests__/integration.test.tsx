@@ -465,7 +465,7 @@ describe('Integration Tests - End-to-End Workflows', () => {
       expect(() => dbStore.deleteTruck(truck.id)).toThrow();
 
       // Planned trips cannot be completed without first being started.
-      expect(() => dbStore.updateTrip(trip.id, { status: 'Completed', end_mileage: 0 })).toThrow('Only an ongoing trip can be completed');
+      expect(() => dbStore.updateTrip(trip.id, { status: 'Completed', distance_traveled: 1 })).toThrow('Only an ongoing trip can be completed');
 
       expect(dbStore.getTrips().find((item) => item.id === trip.id)?.status).toBe('Planned');
       expect(() => dbStore.deleteTruck(truck.id)).toThrow();

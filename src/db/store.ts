@@ -126,7 +126,7 @@ class DatabaseStore extends FleetDomain {
       this.pendingCommands = [];
       this.remoteVersion = 0;
     }
-    this.normalizeOdometerData();
+    this.normalizeTripTotals();
   }
 
   private writeToLocalStorage() {
@@ -360,7 +360,7 @@ class DatabaseStore extends FleetDomain {
     let rows: any[] = [];
 
     if (lower.startsWith('select') && lower.includes('from trucks')) {
-      columns = ['id', 'license_plate', 'model', 'status', 'year', 'capacity_tons', 'current_mileage', 'total_distance_traveled'];
+      columns = ['id', 'license_plate', 'model', 'status', 'year', 'capacity_tons', 'total_distance_traveled'];
       rows = this.trucks.map((t) => ({
         id: t.id.slice(0, 8) + '...',
         license_plate: t.license_plate,
@@ -368,7 +368,6 @@ class DatabaseStore extends FleetDomain {
         status: t.status,
         year: t.year || 'N/A',
         capacity_tons: `${t.capacity_tons} T`,
-        current_mileage: `${t.current_mileage?.toLocaleString()} km`,
         total_distance_traveled: `${(t.total_distance_traveled ?? 0).toLocaleString()} km`,
       }));
     } else if (lower.startsWith('select') && lower.includes('from drivers')) {

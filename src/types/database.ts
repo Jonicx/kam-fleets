@@ -20,10 +20,7 @@ export interface Truck {
   status: TruckStatus;
   year?: number;
   capacity_tons?: number;
-  current_mileage?: number;
   total_distance_traveled?: number;
-  odometer_baseline_date?: string;
-  odometer_baseline_mileage?: number;
   created_at: string;
   updated_at: string;
 }
@@ -80,12 +77,8 @@ export interface Trip {
   scheduled_end: string;   // ISO 8601
   budget_allocated: number; // Planned trip budget estimate, not invoiced revenue
   driver_pay: number;      // Driver compensation for this trip instance
-  start_mileage?: number;
-  end_mileage?: number;
-  /** Kilometres travelled during this trip. Source of truth for odometer readings; required (>0) on completed trips unless flagged for repair. */
+  /** Kilometres travelled during this trip. Required (>0) on completed trips. */
   distance_traveled?: number | null;
-  /** True when a completed trip is missing a usable distance and is excluded from odometer/totals until corrected. */
-  odometer_repair_required?: boolean;
   cargo_type?: string;
   notes?: string;
   delay_logs: DelayLog[]; // Dynamic delay reasons with timestamps

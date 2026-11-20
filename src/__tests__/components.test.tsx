@@ -227,7 +227,6 @@ describe('TrucksView Component', () => {
       status: 'Available',
       year: 2020,
       capacity_tons: 32,
-      current_mileage: 100000,
       total_distance_traveled: 124000,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -258,6 +257,7 @@ describe('TrucksView Component', () => {
     );
 
     expect(screen.getByText('Fleet Trucks Management', { exact: true })).toBeInTheDocument();
+    expect(screen.queryByText('Current odometer')).not.toBeInTheDocument();
   });
 
   it('should display truck license plate', () => {
@@ -294,6 +294,26 @@ describe('TrucksView Component', () => {
     );
 
     expect(screen.getAllByText('124,000 km')).not.toHaveLength(0);
+  });
+
+  it('does not ask for a current odometer when editing a truck', () => {
+    render(
+      <TrucksView
+        trucks={mockTrucks}
+        serviceRecords={mockServiceRecords}
+        trips={mockEnrichedTrips}
+        onCreateTruck={vi.fn()}
+        onCreateServiceRecord={vi.fn()}
+        onUpdateServiceRecord={vi.fn()}
+        onUpdateTruckStatus={vi.fn()}
+        onDeleteTruck={vi.fn()}
+        onUpdateTruck={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit ABC 123' }));
+
+    expect(screen.queryByLabelText(/odometer|current mileage/i)).not.toBeInTheDocument();
   });
 });
 

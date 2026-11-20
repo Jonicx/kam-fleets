@@ -47,6 +47,12 @@ describe('TripDetailModal trip completion', () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole('button', { name: 'Vehicle & Driver' }));
+    expect(screen.queryByText('Current odometer:')).not.toBeInTheDocument();
+    expect(screen.queryByText('Calculated trip start odometer:')).not.toBeInTheDocument();
+    expect(screen.queryByText('Calculated trip end odometer:')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Stats' }));
+
     fireEvent.click(screen.getByRole('button', { name: 'Complete Trip' }));
     expect(screen.getByRole('dialog', { name: 'Complete and finalize this trip?' })).toBeInTheDocument();
 
@@ -68,7 +74,6 @@ describe('TripDetailModal trip completion', () => {
         license_plate: 'ABC 123',
         model: 'Truck',
         status: 'On Trip' as const,
-        current_mileage: 100_000,
         created_at: '2026-01-01T00:00:00.000Z',
         updated_at: '2026-01-01T00:00:00.000Z',
       },

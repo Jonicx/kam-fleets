@@ -897,25 +897,9 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
                         <span className="font-medium text-slate-800">{trip.truck.capacity_tons} Tons</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-500">Current odometer:</span>
-                        <span className="font-mono text-slate-800">{(trip.truck.current_mileage ?? 0).toLocaleString()} km</span>
-                      </div>
-                      <div className="flex justify-between">
                         <span className="text-slate-500">Total distance travelled:</span>
                         <span className="font-mono text-slate-800">{(trip.truck.total_distance_traveled ?? 0).toLocaleString()} km</span>
                       </div>
-                      {trip.start_mileage !== undefined && (
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Calculated trip start odometer:</span>
-                          <span className="font-mono text-slate-800">{trip.start_mileage.toLocaleString()} km</span>
-                        </div>
-                      )}
-                      {trip.end_mileage !== undefined && (
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Calculated trip end odometer:</span>
-                          <span className="font-mono text-slate-800">{trip.end_mileage.toLocaleString()} km</span>
-                        </div>
-                      )}
                     </div>
                   ) : (
                     <p className="text-xs text-slate-400">No truck associated with this trip ID.</p>
@@ -1095,9 +1079,6 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
             </dl>
             <p className="text-[11px] text-slate-500">
               Budget variance is not billed revenue or accounting profit. Completed-trip records cannot be changed.
-            </p>
-            <p className="rounded-lg bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-900">
-              The system calculates the trip&apos;s odometer readings from this distance.
             </p>
             <div className="flex flex-col-reverse justify-end gap-2 sm:flex-row">
               <button
