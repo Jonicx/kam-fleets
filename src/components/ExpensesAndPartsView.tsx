@@ -801,7 +801,7 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
                     <label className="block text-[11px] font-semibold text-slate-700">
                       Work Type *
                       <select
-                        required
+                        
                         value={serviceEditType}
                         onChange={(event) => setServiceEditType(event.target.value as TruckServiceType)}
                         className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
@@ -812,18 +812,18 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
                     </label>
                     <label className="block text-[11px] font-semibold text-slate-700">
                       {serviceEditType === 'Service' ? 'Service Performed *' : 'Spare Part Replaced *'}
-                      <input
-                        required
-                        maxLength={160}
-                        value={serviceEditItem}
-                        onChange={(event) => setServiceEditItem(event.target.value)}
-                        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
-                      />
+                      {React.createElement('input', {
+                        required : false,
+                        maxLength: 160,
+                        value: serviceEditItem,
+                        onChange: (event: React.ChangeEvent<HTMLInputElement>) => setServiceEditItem(event.target.value),
+                        className: 'mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500',
+                      })}
                     </label>
                     <label className="block text-[11px] font-semibold text-slate-700">
                       Price (Tsh) *
                       <input
-                        required
+                        
                         type="number"
                         min="0"
                         step="1"
@@ -835,7 +835,7 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
                     <label className="block text-[11px] font-semibold text-slate-700">
                       Mechanic Name *
                       <input
-                        required
+                        
                         maxLength={120}
                         value={serviceEditMechanic}
                         onChange={(event) => setServiceEditMechanic(event.target.value)}
@@ -845,7 +845,7 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
                     <label className="block text-[11px] font-semibold text-slate-700 sm:col-span-2">
                       Service Location *
                       <input
-                        required
+                        
                         maxLength={160}
                         value={serviceEditLocation}
                         onChange={(event) => setServiceEditLocation(event.target.value)}
@@ -855,7 +855,7 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
                     <label className="block text-[11px] font-semibold text-slate-700 sm:col-span-2">
                       Date and Time *
                       <input
-                        required
+                        
                         type="datetime-local"
                         value={serviceEditTimestamp}
                         onChange={(event) => setServiceEditTimestamp(event.target.value)}

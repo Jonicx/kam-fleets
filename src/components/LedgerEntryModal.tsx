@@ -71,7 +71,7 @@ export const LedgerEntryModal: React.FC<LedgerEntryModalProps> = ({ entry, trips
     }
   };
 
-  const title = `${existing ? 'Edit' : 'Add'} ${isExpense ? 'Trip Expense' : 'Spare Part / Repair'}`;
+  const title = `${existing ? 'Edit' : 'Add'} ${isExpense ? 'Expense' : 'Spare Part / Repair'}`;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-start justify-center p-3 sm:items-start sm:p-4">
@@ -93,8 +93,8 @@ export const LedgerEntryModal: React.FC<LedgerEntryModalProps> = ({ entry, trips
             </div>
           )}
           <div>
-            <label htmlFor="ledger-trip" className={labelClass}>Trip *</label>
-            <select id="ledger-trip" required disabled={Boolean(existing)} value={tripId} onChange={(e) => setTripId(e.target.value)} className={inputClass}>
+            <label htmlFor="ledger-trip" className={labelClass}>Trip </label>
+            <select id="ledger-trip" disabled={Boolean(existing)} value={tripId} onChange={(e) => setTripId(e.target.value)} className={inputClass}>
               {existing && !openTrips.some((trip) => trip.id === existing.trip_id) && <option value={existing.trip_id}>Completed trip</option>}
               {openTrips.length === 0 && !existing && <option value="">No open trips</option>}
               {openTrips.map((trip) => (
@@ -107,25 +107,25 @@ export const LedgerEntryModal: React.FC<LedgerEntryModalProps> = ({ entry, trips
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {isExpense ? (
               <div>
-                <label htmlFor="ledger-category" className={labelClass}>Expense type *</label>
+                <label htmlFor="ledger-category" className={labelClass}>Expense type </label>
                 <select id="ledger-category" value={category} onChange={(e) => setCategory(e.target.value as ExpenseType)} className={inputClass}>
                   {EXPENSE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
                 </select>
               </div>
             ) : (
               <div>
-                <label htmlFor="ledger-name" className={labelClass}>Part / repair name *</label>
-                <input id="ledger-name" required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
+                <label htmlFor="ledger-name" className={labelClass}>Part / repair name </label>
+                <input id="ledger-name" maxLength={200} value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
               </div>
             )}
             <div>
-              <label htmlFor="ledger-amount" className={labelClass}>Amount (TSh) *</label>
-              <input id="ledger-amount" type="number" required min={isExpense ? 1 : 0} step="1" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} className={`${inputClass} font-mono`} />
+              <label htmlFor="ledger-amount" className={labelClass}>Amount (TSh) </label>
+              <input id="ledger-amount" type="number" min={isExpense ? 1 : 0} step="1" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} className={`${inputClass} font-mono`} />
             </div>
           </div>
           <div>
-            <label htmlFor="ledger-time" className={labelClass}>Date &amp; time *</label>
-            <input id="ledger-time" type="datetime-local" required value={timestamp} onChange={(e) => setTimestamp(e.target.value)} className={inputClass} />
+            <label htmlFor="ledger-time" className={labelClass}>Date &amp; time </label>
+            <input id="ledger-time" type="datetime-local" value={timestamp} onChange={(e) => setTimestamp(e.target.value)} className={inputClass} />
           </div>
           {!isExpense && (
             <div>
