@@ -26,6 +26,7 @@ import {
 } from '../types/database.ts';
 import { formatTsh } from '../utils/currency.ts';
 import { useModalAccessibility } from '../hooks/useModalAccessibility.ts';
+import { ConfirmActionModal } from './ConfirmActionModal.tsx';
 
 interface NewTripModalProps {
   trucks: Truck[];
@@ -82,6 +83,7 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
 
   // Initial Spare Parts list needed at launch
   const [initialSpareParts, setInitialSpareParts] = useState<InitialSparePartInput[]>([]);
+  const [pendingRowRemoval, setPendingRowRemoval] = useState<{ kind: 'expense' | 'spare_part'; index: number } | null>(null);
 
   // Validation / Error state
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -728,9 +730,7 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
                     <div className="sm:col-span-1 flex justify-end items-end pt-3 sm:pt-0">
                       <button
                         type="button"
-                        onClick={() => {
-                          if (window.confirm('Remove this expense line from the new trip?')) handleRemoveExpense(idx);
-                        }}
+                        onClick={() => setPendingRowRemoval({ kind: 'expense', index: idx })}
                         className="p-1.5 text-slate-400 hover:text-rose-600 transition"
                         title="Remove expense line"
                       >
@@ -817,9 +817,7 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
                     <div className="sm:col-span-1 flex justify-end items-end pt-3 sm:pt-0">
                       <button
                         type="button"
-                        onClick={() => {
-                          if (window.confirm('Remove this spare part line from the new trip?')) handleRemoveSparePart(idx);
-                        }}
+                        onClick={() => setPendingRowRemoval({ kind: 'spare_part', index: idx })}
                         className="p-1.5 text-slate-400 hover:text-rose-600 transition"
                         title="Remove spare part line"
                       >
@@ -871,6 +869,22 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
           </div>
         </form>
       </div>
+      {pendingRowRemoval && (
+        <ConfirmActionModal
+          title={`Remove ${pendingRowRemoval.kind === 'expense' ? 'expense' : 'spare part'} line?`}
+          description="This unsaved line will be removed from the new trip."
+          confirmLabel={`Remove ${pendingRowRemoval.kind === 'expense' ? 'expense' : 'spare part'} line`}
+          onConfirm={() => {
+            if (pendingRowRemoval.kind === 'expense') {
+              handleRemoveExpense(pendingRowRemoval.index);
+            } else {
+              handleRemoveSparePart(pendingRowRemoval.index);
+            }
+            setPendingRowRemoval(null);
+          }}
+          onClose={() => setPendingRowRemoval(null)}
+        />
+      )}
     </div>
   );
 };

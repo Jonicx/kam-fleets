@@ -15,6 +15,7 @@ import {
 import { Expense, SparePart, EnrichedTrip, ExpenseType, Truck, TruckServiceRecord, TruckServiceType } from '../types/database.ts';
 import { formatTsh } from '../utils/currency.ts';
 import { canEditTruckServiceRecord } from '../utils/truckService.ts';
+import { ConfirmActionModal } from './ConfirmActionModal.tsx';
 import { LedgerEntry, LedgerEntryModal, LedgerEntryValues } from './LedgerEntryModal.tsx';
 
 interface ExpensesAndPartsViewProps {
@@ -33,6 +34,12 @@ interface ExpensesAndPartsViewProps {
   onSelectTrip: (tripId: string) => void;
 }
 
+type DeletableLedgerEntry = {
+  kind: 'expense' | 'spare_part';
+  id: string;
+  title: string;
+};
+
 export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
   expenses,
   spareParts,
@@ -46,6 +53,7 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
   onSelectTrip,
 }) => {
   const [ledgerEntry, setLedgerEntry] = useState<LedgerEntry | null>(null);
+  const [entryToDelete, setEntryToDelete] = useState<DeletableLedgerEntry | null>(null);
   const [entryError, setEntryError] = useState<string | null>(null);
   const [activeLedger, setActiveLedger] = useState<'all' | 'expenses' | 'spares' | 'services'>('all');
   const [selectedType, setSelectedType] = useState<string>('All');
@@ -70,6 +78,22 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
   const selectedServiceTruck = selectedService
     ? trucks.find((truck) => truck.id === selectedService.truck_id)
     : undefined;
+
+  const confirmDeleteEntry = () => {
+    if (!entryToDelete) return;
+    setEntryError(null);
+    try {
+      if (entryToDelete.kind === 'expense') {
+        onDeleteExpense(entryToDelete.id);
+      } else {
+        onDeleteSparePart(entryToDelete.id);
+      }
+      setEntryToDelete(null);
+    } catch (deleteError) {
+      setEntryError(deleteError instanceof Error ? deleteError.message : 'The record could not be deleted.');
+      setEntryToDelete(null);
+    }
+  };
 
   const openServiceDetails = (record: TruckServiceRecord) => {
     const timestamp = new Date(record.timestamp);
@@ -387,6 +411,15 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
       </div>
       {entryError && (
         <div role="alert" className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs">{entryError}</div>
+      )}
+      {entryToDelete && (
+        <ConfirmActionModal
+          title={`Delete ${entryToDelete.title}?`}
+          description="This record will be permanently deleted. This action cannot be undone."
+          confirmLabel="Delete record"
+          onConfirm={confirmDeleteEntry}
+          onClose={() => setEntryToDelete(null)}
+        />
       )}
       {ledgerEntry && (
         <LedgerEntryModal entry={ledgerEntry} trips={trips} onSave={onSaveEntry} onClose={() => setLedgerEntry(null)} />
@@ -730,15 +763,8 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
                             type="button"
                             onClick={() => {
                               setEntryError(null);
-                              if (!window.confirm(`Delete ${item.title}? This cannot be undone.`)) return;
-                              try {
-                                if (item.kind === 'expense') {
-                                  onDeleteExpense(item.id);
-                                } else if (item.kind === 'spare_part') {
-                                  onDeleteSparePart(item.id);
-                                }
-                              } catch (deleteError) {
-                                setEntryError(deleteError instanceof Error ? deleteError.message : 'The record could not be deleted.');
+                              if (item.kind === 'expense' || item.kind === 'spare_part') {
+                                setEntryToDelete({ kind: item.kind, id: item.id, title: item.title });
                               }
                             }}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"

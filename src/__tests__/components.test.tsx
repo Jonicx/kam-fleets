@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { DashboardView } from '../components/DashboardView';
 import { TripsView } from '../components/TripsView';
 import { TrucksView } from '../components/TrucksView';
@@ -397,31 +397,29 @@ describe('NewTripModal odometer fields', () => {
   });
 
   it('confirms before removing an unsaved expense line', () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
-    try {
-      render(
-        <NewTripModal
-          trucks={[]}
-          drivers={[]}
-          clients={[]}
-          onClose={vi.fn()}
-          onCreateTrip={vi.fn()}
-        />
-      );
+    render(
+      <NewTripModal
+        trucks={[]}
+        drivers={[]}
+        clients={[]}
+        onClose={vi.fn()}
+        onCreateTrip={vi.fn()}
+      />
+    );
 
-      fireEvent.click(screen.getByRole('button', { name: 'Add Expense Line' }));
-      const removeButton = screen.getByTitle('Remove expense line');
-      fireEvent.click(removeButton);
+    fireEvent.click(screen.getByRole('button', { name: 'Add Expense Line' }));
+    const removeButton = screen.getByTitle('Remove expense line');
+    fireEvent.click(removeButton);
 
-      expect(confirm).toHaveBeenCalledWith('Remove this expense line from the new trip?');
-      expect(removeButton).toBeInTheDocument();
+    const confirmation = screen.getByRole('dialog', { name: 'Remove expense line?' });
+    expect(removeButton).toBeInTheDocument();
+    fireEvent.click(within(confirmation).getByRole('button', { name: 'Cancel' }));
+    expect(removeButton).toBeInTheDocument();
 
-      confirm.mockReturnValue(true);
-      fireEvent.click(removeButton);
-      expect(screen.queryByTitle('Remove expense line')).not.toBeInTheDocument();
-    } finally {
-      confirm.mockRestore();
-    }
+    fireEvent.click(removeButton);
+    const secondConfirmation = screen.getByRole('dialog', { name: 'Remove expense line?' });
+    fireEvent.click(within(secondConfirmation).getByRole('button', { name: 'Remove expense line' }));
+    expect(screen.queryByTitle('Remove expense line')).not.toBeInTheDocument();
   });
 });
 
@@ -490,34 +488,32 @@ describe('ExpensesAndPartsView Component', () => {
 
   it('confirms before deleting a ledger record and preserves cancellation', () => {
     const onDeleteExpense = vi.fn();
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
-    try {
-      render(
-        <ExpensesAndPartsView
-          expenses={mockExpenses}
-          spareParts={mockSpareParts}
-          trucks={mockTrucks}
-          truckServiceRecords={mockServiceRecords}
-          trips={mockTrips}
-          onDeleteExpense={onDeleteExpense}
-          onDeleteSparePart={vi.fn()}
-          onSaveEntry={vi.fn()}
-          onUpdateTruckServiceRecord={vi.fn()}
-          onSelectTrip={vi.fn()}
-        />
-      );
+    render(
+      <ExpensesAndPartsView
+        expenses={mockExpenses}
+        spareParts={mockSpareParts}
+        trucks={mockTrucks}
+        truckServiceRecords={mockServiceRecords}
+        trips={mockTrips}
+        onDeleteExpense={onDeleteExpense}
+        onDeleteSparePart={vi.fn()}
+        onSaveEntry={vi.fn()}
+        onUpdateTruckServiceRecord={vi.fn()}
+        onSelectTrip={vi.fn()}
+      />
+    );
 
-      const deleteButton = screen.getByRole('button', { name: 'Delete Fuel Disbursement' });
-      fireEvent.click(deleteButton);
-      expect(confirm).toHaveBeenCalledWith('Delete Fuel Disbursement? This cannot be undone.');
-      expect(onDeleteExpense).not.toHaveBeenCalled();
+    const deleteButton = screen.getByRole('button', { name: 'Delete Fuel Disbursement' });
+    fireEvent.click(deleteButton);
 
-      confirm.mockReturnValue(true);
-      fireEvent.click(deleteButton);
-      expect(onDeleteExpense).toHaveBeenCalledWith('1');
-    } finally {
-      confirm.mockRestore();
-    }
+    const confirmation = screen.getByRole('dialog', { name: 'Delete Fuel Disbursement?' });
+    fireEvent.click(within(confirmation).getByRole('button', { name: 'Cancel' }));
+    expect(onDeleteExpense).not.toHaveBeenCalled();
+
+    fireEvent.click(deleteButton);
+    const secondConfirmation = screen.getByRole('dialog', { name: 'Delete Fuel Disbursement?' });
+    fireEvent.click(within(secondConfirmation).getByRole('button', { name: 'Delete record' }));
+    expect(onDeleteExpense).toHaveBeenCalledWith('1');
   });
 
   it('allows saving a standalone expense when there are no trips', () => {

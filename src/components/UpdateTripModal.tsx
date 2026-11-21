@@ -31,6 +31,8 @@ import {
 import { formatTsh } from '../utils/currency.ts';
 import { useModalAccessibility } from '../hooks/useModalAccessibility.ts';
 import { getDelaySeverityClasses } from '../utils/delaySeverity.ts';
+import { ConfirmActionModal } from './ConfirmActionModal.tsx';
+import type { ConfirmationRequest } from './ConfirmActionModal.tsx';
 
 interface UpdateTripModalProps {
   trip: EnrichedTrip;
@@ -91,6 +93,7 @@ export const UpdateTripModal: React.FC<UpdateTripModalProps> = ({
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
   const [completionDistance, setCompletionDistance] = useState('');
   const [completionDistanceError, setCompletionDistanceError] = useState('');
+  const [deleteConfirmation, setDeleteConfirmation] = useState<ConfirmationRequest | null>(null);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -690,9 +693,12 @@ export const UpdateTripModal: React.FC<UpdateTripModalProps> = ({
                             </td>
                             <td className="py-2.5 px-2 text-right sm:px-3">
                               <button
-                                onClick={() => {
-                                  if (window.confirm('Delete this expense? This cannot be undone.')) onDeleteExpense(exp.id);
-                                }}
+                                onClick={() => setDeleteConfirmation({
+                                  title: `Delete ${exp.expense_type} expense?`,
+                                  description: 'This expense will be permanently deleted. This action cannot be undone.',
+                                  confirmLabel: 'Delete expense',
+                                  onConfirm: () => onDeleteExpense(exp.id),
+                                })}
                                 className="p-1.5 text-slate-400 hover:text-rose-600 transition"
                                 title="Delete expense"
                               >
@@ -917,9 +923,12 @@ export const UpdateTripModal: React.FC<UpdateTripModalProps> = ({
                             </td>
                             <td className="py-2.5 px-2 text-right sm:px-3">
                               <button
-                                onClick={() => {
-                                  if (window.confirm('Delete this spare part? This cannot be undone.')) onDeleteSparePart(sp.id);
-                                }}
+                                onClick={() => setDeleteConfirmation({
+                                  title: `Delete ${sp.part_name}?`,
+                                  description: 'This spare part record will be permanently deleted. This action cannot be undone.',
+                                  confirmLabel: 'Delete spare part',
+                                  onConfirm: () => onDeleteSparePart(sp.id),
+                                })}
                                 className="p-1.5 text-slate-400 hover:text-rose-600 transition"
                                 title="Delete spare part"
                               >
@@ -1147,9 +1156,12 @@ export const UpdateTripModal: React.FC<UpdateTripModalProps> = ({
                         </div>
 
                         <button
-                          onClick={() => {
-                            if (window.confirm('Remove this delay log? This cannot be undone.')) onRemoveDelayLog(trip.id, log.id);
-                          }}
+                          onClick={() => setDeleteConfirmation({
+                            title: 'Remove delay log?',
+                            description: 'This delay log will be permanently removed. This action cannot be undone.',
+                            confirmLabel: 'Remove delay log',
+                            onConfirm: () => onRemoveDelayLog(trip.id, log.id),
+                          })}
                           className="p-1.5 text-slate-400 hover:text-rose-600 transition"
                           title="Remove delay log"
                         >
@@ -1319,6 +1331,12 @@ export const UpdateTripModal: React.FC<UpdateTripModalProps> = ({
           </div>
         </div>
       </div>
+      {deleteConfirmation && (
+        <ConfirmActionModal
+          {...deleteConfirmation}
+          onClose={() => setDeleteConfirmation(null)}
+        />
+      )}
     </div>
   );
 };

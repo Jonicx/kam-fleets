@@ -23,6 +23,8 @@ import {
 import { formatTsh } from '../utils/currency.ts';
 import { getDelaySeverityClasses } from '../utils/delaySeverity.ts';
 import { useModalAccessibility } from '../hooks/useModalAccessibility.ts';
+import { ConfirmActionModal } from './ConfirmActionModal.tsx';
+import type { ConfirmationRequest } from './ConfirmActionModal.tsx';
 
 interface TripDetailModalProps {
   trip: EnrichedTrip;
@@ -97,6 +99,7 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
   const [partReplacedBy, setPartReplacedBy] = useState('');
 
   const [modalError, setModalError] = useState<string | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<ConfirmationRequest | null>(null);
   const [showCompleteConfirmModal, setShowCompleteConfirmModal] = useState(false);
   const [completionDistance, setCompletionDistance] = useState('');
   const [completionDistanceError, setCompletionDistanceError] = useState('');
@@ -556,9 +559,12 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
                       </div>
 
                       <button
-                        onClick={() => {
-                          if (window.confirm('Remove this delay log? This cannot be undone.')) onRemoveDelayLog(trip.id, log.id);
-                        }}
+                        onClick={() => setDeleteConfirmation({
+                          title: 'Remove delay log?',
+                          description: 'This delay log will be permanently removed. This action cannot be undone.',
+                          confirmLabel: 'Remove delay log',
+                          onConfirm: () => onRemoveDelayLog(trip.id, log.id),
+                        })}
                         className="text-slate-400 hover:text-rose-600 p-1 transition"
                         title="Remove delay log"
                       >
@@ -704,9 +710,12 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
                           </td>
                           <td className="py-2.5 px-3 text-right">
                             <button
-                              onClick={() => {
-                                if (window.confirm('Delete this expense? This cannot be undone.')) onDeleteExpense(exp.id);
-                              }}
+                              onClick={() => setDeleteConfirmation({
+                                title: `Delete ${exp.expense_type} expense?`,
+                                description: 'This expense will be permanently deleted. This action cannot be undone.',
+                                confirmLabel: 'Delete expense',
+                                onConfirm: () => onDeleteExpense(exp.id),
+                              })}
                               className="text-slate-400 hover:text-rose-600 transition"
                               title="Delete expense"
                             >
@@ -856,9 +865,12 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
                           </td>
                           <td className="py-2.5 px-3 text-right">
                             <button
-                              onClick={() => {
-                                if (window.confirm('Delete this spare part? This cannot be undone.')) onDeleteSparePart(sp.id);
-                              }}
+                              onClick={() => setDeleteConfirmation({
+                                title: `Delete ${sp.part_name}?`,
+                                description: 'This spare part record will be permanently deleted. This action cannot be undone.',
+                                confirmLabel: 'Delete spare part',
+                                onConfirm: () => onDeleteSparePart(sp.id),
+                              })}
                               className="text-slate-400 hover:text-rose-600 transition"
                               title="Delete spare part record"
                             >
@@ -1118,6 +1130,12 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
             </div>
           </section>
         </div>
+      )}
+      {deleteConfirmation && (
+        <ConfirmActionModal
+          {...deleteConfirmation}
+          onClose={() => setDeleteConfirmation(null)}
+        />
       )}
     </div>
   );
