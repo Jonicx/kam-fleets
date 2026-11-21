@@ -728,7 +728,9 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
                     <div className="sm:col-span-1 flex justify-end items-end pt-3 sm:pt-0">
                       <button
                         type="button"
-                        onClick={() => handleRemoveExpense(idx)}
+                        onClick={() => {
+                          if (window.confirm('Remove this expense line from the new trip?')) handleRemoveExpense(idx);
+                        }}
                         className="p-1.5 text-slate-400 hover:text-rose-600 transition"
                         title="Remove expense line"
                       >
@@ -815,7 +817,9 @@ export const NewTripModal: React.FC<NewTripModalProps> = ({
                     <div className="sm:col-span-1 flex justify-end items-end pt-3 sm:pt-0">
                       <button
                         type="button"
-                        onClick={() => handleRemoveSparePart(idx)}
+                        onClick={() => {
+                          if (window.confirm('Remove this spare part line from the new trip?')) handleRemoveSparePart(idx);
+                        }}
                         className="p-1.5 text-slate-400 hover:text-rose-600 transition"
                         title="Remove spare part line"
                       >

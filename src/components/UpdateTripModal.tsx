@@ -690,7 +690,9 @@ export const UpdateTripModal: React.FC<UpdateTripModalProps> = ({
                             </td>
                             <td className="py-2.5 px-2 text-right sm:px-3">
                               <button
-                                onClick={() => onDeleteExpense(exp.id)}
+                                onClick={() => {
+                                  if (window.confirm('Delete this expense? This cannot be undone.')) onDeleteExpense(exp.id);
+                                }}
                                 className="p-1.5 text-slate-400 hover:text-rose-600 transition"
                                 title="Delete expense"
                               >
@@ -915,7 +917,9 @@ export const UpdateTripModal: React.FC<UpdateTripModalProps> = ({
                             </td>
                             <td className="py-2.5 px-2 text-right sm:px-3">
                               <button
-                                onClick={() => onDeleteSparePart(sp.id)}
+                                onClick={() => {
+                                  if (window.confirm('Delete this spare part? This cannot be undone.')) onDeleteSparePart(sp.id);
+                                }}
                                 className="p-1.5 text-slate-400 hover:text-rose-600 transition"
                                 title="Delete spare part"
                               >
@@ -1143,7 +1147,9 @@ export const UpdateTripModal: React.FC<UpdateTripModalProps> = ({
                         </div>
 
                         <button
-                          onClick={() => onRemoveDelayLog(trip.id, log.id)}
+                          onClick={() => {
+                            if (window.confirm('Remove this delay log? This cannot be undone.')) onRemoveDelayLog(trip.id, log.id);
+                          }}
                           className="p-1.5 text-slate-400 hover:text-rose-600 transition"
                           title="Remove delay log"
                         >

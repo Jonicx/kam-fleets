@@ -730,6 +730,7 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
                             type="button"
                             onClick={() => {
                               setEntryError(null);
+                              if (!window.confirm(`Delete ${item.title}? This cannot be undone.`)) return;
                               try {
                                 if (item.kind === 'expense') {
                                   onDeleteExpense(item.id);
