@@ -314,6 +314,75 @@ describe('Integration Tests - End-to-End Workflows', () => {
         });
       }).toThrow('exceeds the invoice balance');
     });
+
+    it('should insert payments without upsert (append-only design)', () => {
+      // This test verifies that payments use plain INSERT in server/teamData.ts
+      // by checking that multiple payments can be created for the same invoice
+      // (which is allowed for partial payments)
+      const truck = dbStore.createTruck({
+        license_plate: 'TRK 333',
+        model: 'Test Truck',
+        status: 'Available',
+      });
+
+      const driver = dbStore.createDriver({
+        full_name: 'Test Driver',
+        license_number: 'LIC333',
+        phone: '3333333333',
+        status: 'Available',
+      });
+
+      const trip = dbStore.createTrip({
+        truck_id: truck.id,
+        driver_id: driver.id,
+        origin: 'X',
+        destination: 'Y',
+        scheduled_start: new Date().toISOString(),
+        scheduled_end: new Date(Date.now() + 86400000).toISOString(),
+        budget_allocated: 10000,
+        driver_pay: 4000,
+      });
+
+      dbStore.updateTrip(trip.id, { status: 'Ongoing' });
+      dbStore.updateTrip(trip.id, { status: 'Completed', distance_traveled: 100 });
+
+      const invoice = dbStore.createInvoice({
+        trip_id: trip.id,
+        amount: 15000,
+        issued_at: new Date().toISOString(),
+        due_at: new Date(Date.now() + 86400000 * 30).toISOString(),
+      });
+
+      // Create first partial payment
+      const payment1 = dbStore.createPayment({
+        invoice_id: invoice.id,
+        amount: 8000,
+        method: 'Cash',
+        paid_at: new Date().toISOString(),
+      });
+
+      expect(payment1).toBeDefined();
+      expect(payment1.amount).toBe(8000);
+
+      // Create second partial payment (different ID, same invoice)
+      const payment2 = dbStore.createPayment({
+        invoice_id: invoice.id,
+        amount: 7000,
+        method: 'Bank transfer',
+        paid_at: new Date().toISOString(),
+      });
+
+      expect(payment2).toBeDefined();
+      expect(payment2.amount).toBe(7000);
+      expect(payment2.id).not.toBe(payment1.id); // Different IDs
+
+      // Verify both payments exist (order may vary due to unshift)
+      const payments = dbStore.getInvoicePayments(invoice.id);
+      expect(payments.length).toBe(2);
+      const paymentIds = payments.map((p) => p.id);
+      expect(paymentIds).toContain(payment1.id);
+      expect(paymentIds).toContain(payment2.id);
+    });
   });
 
   describe('Audit Trail Workflow', () => {

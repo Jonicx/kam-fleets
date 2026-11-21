@@ -255,6 +255,22 @@ async function upsertRow(client: PoolClient, spec: TableSpec, record: Row, actor
   );
 }
 
+async function insertRow(client: PoolClient, spec: TableSpec, record: Row, actorUserId: string) {
+  const entries = Object.entries(spec.columns);
+  const columns = entries.map(([, column]) => column);
+  const values: unknown[] = entries.map(([key]) => record[key] ?? null);
+  if (!isUuid(record.id)) throw new Error(`Invalid record id for ${spec.table}.`);
+  if (spec.actorColumn) {
+    columns.push(spec.actorColumn);
+    values.push(actorUserId);
+  }
+  await client.query(
+    `INSERT INTO ${spec.table} (${columns.join(', ')})
+     VALUES (${columns.map((_, index) => `$${index + 1}`).join(', ')})`,
+    values,
+  );
+}
+
 interface TableDiff {
   spec: TableSpec;
   upserts: Row[];
@@ -326,8 +342,13 @@ export async function saveChanges(
   const previousInvoices = byId(before.invoices);
   for (const diff of upsertOrder) {
     for (const row of diff.upserts) {
-      if (diff.spec === PAYMENTS && previousPayments.has(String(row.id))) continue;
-      await upsertRow(client, diff.spec, row, actorUserId);
+      if (diff.spec === PAYMENTS) {
+        // Payments are append-only: skip if already persisted, otherwise use plain INSERT
+        if (previousPayments.has(String(row.id))) continue;
+        await insertRow(client, diff.spec, row, actorUserId);
+      } else {
+        await upsertRow(client, diff.spec, row, actorUserId);
+      }
       if (diff.spec === INVOICES && row.voided_at && !previousInvoices.get(String(row.id))?.voided_at) {
         await client.query('UPDATE invoices SET voided_by = $2 WHERE id = $1', [row.id, actorUserId]);
       }
