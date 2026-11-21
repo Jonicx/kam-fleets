@@ -915,6 +915,10 @@ export const TripDetailModal: React.FC<TripDetailModalProps> = ({
                         <span className="font-medium text-slate-800">{trip.truck.capacity_tons} Tons</span>
                       </div>
                       <div className="flex justify-between">
+                        <span className="text-slate-500">Cargo:</span>
+                        <span className="font-semibold text-slate-800">{trip.cargo_type || 'General Freight'}</span>
+                      </div>
+                      <div className="flex justify-between">
                         <span className="text-slate-500">Total distance travelled:</span>
                         <span className="font-mono text-slate-800">{(trip.truck.total_distance_traveled ?? 0).toLocaleString()} km</span>
                       </div>

@@ -195,7 +195,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     () => trips.filter((trip) =>
       (filter === 'All' || trip.status === filter) &&
       (
-        isWithinRange(trip.status === 'Completed' ? trip.completed_at || trip.scheduled_end : trip.scheduled_start, reportRange) ||
+        isWithinRange(trip.scheduled_start, reportRange) ||
         (trip.status !== 'Completed' && (
           trip.expenses.some((expense) => isWithinRange(expense.timestamp, reportRange)) ||
           trip.spare_parts.some((part) => isWithinRange(part.timestamp, reportRange))
@@ -220,7 +220,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const analytics = useMemo(() => {
     const completedTrips = reportTrips.filter((trip) =>
       trip.status === 'Completed' &&
-      isWithinRange(trip.completed_at || trip.scheduled_end, reportRange),
+      isWithinRange(trip.scheduled_start, reportRange),
     );
     const completedTripBudget = completedTrips.reduce(
       (total, trip) => total + Number(trip.budget_allocated || 0),
@@ -286,9 +286,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
     for (const trip of reportTrips) {
       if (trip.status === 'Completed') {
-        const key = monthKey(trip.completed_at || trip.scheduled_end);
+        const key = monthKey(trip.scheduled_start);
         const month = key ? monthByKey.get(key) : undefined;
-        if (month && isWithinRange(trip.completed_at || trip.scheduled_end, reportRange)) {
+        if (month && isWithinRange(trip.scheduled_start, reportRange)) {
           month.budget += Number(trip.budget_allocated || 0);
           month.costs += getRecordedTripCosts(trip);
         }

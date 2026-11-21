@@ -29,6 +29,40 @@ const trip: EnrichedTrip = {
 };
 
 describe('TripDetailModal trip completion', () => {
+  it('shows the transported cargo in the allocated vehicle card', () => {
+    const tripWithVehicle = {
+      ...trip,
+      cargo_type: '32 Tons of Millet Grains',
+      truck: {
+        id: 'truck-1',
+        license_plate: 'ABC 123',
+        model: 'Truck',
+        status: 'On Trip' as const,
+        created_at: '2026-01-01T00:00:00.000Z',
+        updated_at: '2026-01-01T00:00:00.000Z',
+      },
+    };
+
+    render(
+      <TripDetailModal
+        trip={tripWithVehicle}
+        onClose={vi.fn()}
+        onUpdateStatus={vi.fn()}
+        onAddDelayLog={vi.fn()}
+        onRemoveDelayLog={vi.fn()}
+        onAddExpense={vi.fn()}
+        onDeleteExpense={vi.fn()}
+        onAddSparePart={vi.fn()}
+        onDeleteSparePart={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Vehicle & Driver' }));
+
+    const cargoRow = screen.getByText('Cargo:', { selector: 'span' }).parentElement;
+    expect(cargoRow).toHaveTextContent(/Cargo:\s*32 Tons of Millet Grains/);
+  });
+
   it('submits the trip distance when confirming completion', () => {
     const onClose = vi.fn();
     const onUpdateStatus = vi.fn();

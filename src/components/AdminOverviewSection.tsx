@@ -192,7 +192,7 @@ export const AdminOverviewSection: React.FC<AdminOverviewSectionProps> = ({
             </div>
           </details>
           <p className="mt-1 mobile-explanation text-[11px] leading-relaxed text-slate-500">
-            Invoices use issue date; cash uses payment date; completed-trip costs use completion date; ongoing-trip and fleet-service costs use transaction dates.
+            Invoices use issue date; cash uses payment date; completed-trip costs use the trip's scheduled start date; ongoing-trip and fleet-service costs use transaction dates.
           </p>
         </div>
 
