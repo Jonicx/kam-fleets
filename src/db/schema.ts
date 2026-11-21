@@ -117,7 +117,6 @@ export const tripDelayLogs = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     tripId: uuid('trip_id')
-      .notNull()
       .references(() => trips.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
     reason: text('reason').notNull(),
     severity: varchar('severity', { length: 20 }).default('Medium').notNull(),
@@ -140,7 +139,6 @@ export const expenses = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     tripId: uuid('trip_id')
-      .notNull()
       .references(() => trips.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
     expenseType: expenseTypeEnum('expense_type').notNull(),
     amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),

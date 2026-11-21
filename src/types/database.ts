@@ -121,7 +121,7 @@ export interface CreateTripPayload {
 
 export interface Expense {
   id: string;
-  trip_id: string;
+  trip_id?: string;
   expense_type: ExpenseType;
   amount: number;
   description: string;
@@ -131,7 +131,7 @@ export interface Expense {
 
 export interface SparePart {
   id: string;
-  trip_id: string;
+  trip_id?: string;
   part_name: string;
   price: number;
   description: string;

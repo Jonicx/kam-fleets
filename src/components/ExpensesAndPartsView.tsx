@@ -677,7 +677,9 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
                       ) : item.kind === 'truck_service' ? (
                         <span className="font-mono text-[11px] font-bold text-slate-700">{item.reference}</span>
                       ) : (
-                        <span className="text-slate-400 font-mono text-[11px]">{item.trip_id?.slice(0, 8) || '-'}</span>
+                        <span className="text-slate-400 font-mono text-[11px]">
+                          {item.trip_id?.slice(0, 8) || 'Standalone'}
+                        </span>
                       )}
                     </td>
 
@@ -707,7 +709,6 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
                         </button>
                       ) : (
                         <span className="inline-flex items-center gap-1">
-                        {linkedTrip?.status !== 'Completed' && (
                           <button
                             type="button"
                             onClick={() => {
@@ -724,25 +725,28 @@ export const ExpensesAndPartsView: React.FC<ExpensesAndPartsViewProps> = ({
                           >
                             <Pencil className="h-4 w-4" />
                           </button>
+                        {linkedTrip?.status !== 'Completed' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEntryError(null);
+                              try {
+                                if (item.kind === 'expense') {
+                                  onDeleteExpense(item.id);
+                                } else if (item.kind === 'spare_part') {
+                                  onDeleteSparePart(item.id);
+                                }
+                              } catch (deleteError) {
+                                setEntryError(deleteError instanceof Error ? deleteError.message : 'The record could not be deleted.');
+                              }
+                            }}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                            title="Delete record"
+                            aria-label={`Delete ${item.title}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         )}
-                        <button
-                        onClick={() => {
-                          setEntryError(null);
-                          try {
-                            if (item.kind === 'expense') {
-                              onDeleteExpense(item.id);
-                            } else if (item.kind === 'spare_part') {
-                              onDeleteSparePart(item.id);
-                            }
-                          } catch (deleteError) {
-                            setEntryError(deleteError instanceof Error ? deleteError.message : 'The record could not be deleted.');
-                          }
-                        }}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                        title="Delete record"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        </button>
                         </span>
                       )}
                     </td>

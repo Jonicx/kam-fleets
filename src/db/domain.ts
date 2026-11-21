@@ -1250,7 +1250,7 @@ export class FleetDomain {
     if (removedLog) this.recordAudit('removed trip delay', 'trip', tripId, `Removed delay record: ${removedLog.reason}.`, removedLog);
   }
 
-  // --- EXPENSES (Trip ID, Type, Amount, Description, Timestamp) ---
+  // --- EXPENSES (Optional Trip, Type, Amount, Description, Timestamp) ---
   public getExpenses(tripId?: string): Expense[] {
     if (tripId) {
       return this.expenses.filter((e) => e.trip_id === tripId);
@@ -1259,13 +1259,8 @@ export class FleetDomain {
   }
 
   public createExpense(data: Omit<Expense, 'id' | 'created_at' | 'timestamp'> & { timestamp?: string }): Expense {
-    // Foreign key check
-    const trip = this.trips.find((t) => t.id === data.trip_id);
-    if (!trip) throw new Error(`Foreign Key Violation: Trip ID ${data.trip_id} does not exist.`);
-
-    if (trip.status === 'Completed') {
-      throw new Error(`Forbidden: Cannot add mid-trip expenses to completed trip ${data.trip_id}. Trip records are finalized and locked.`);
-    }
+    const trip = data.trip_id ? this.trips.find((t) => t.id === data.trip_id) : undefined;
+    if (data.trip_id && !trip) throw new Error(`Foreign Key Violation: Trip ID ${data.trip_id} does not exist.`);
 
     requireWholeAmount(data.amount, 'Expense amount');
     requireExpenseType(data.expense_type);
@@ -1275,7 +1270,7 @@ export class FleetDomain {
 
     const now = this.nowIso();
     const newExpense: Expense = {
-      trip_id: trip.id,
+      trip_id: trip?.id,
       expense_type: data.expense_type,
       description: optionalText(data.description, 'Expense description', 500) ?? '',
       id: this.newId(),
@@ -1285,7 +1280,15 @@ export class FleetDomain {
     };
 
     this.expenses.unshift(newExpense);
-    this.recordAudit('created expense', 'expense', newExpense.id, `Recorded ${newExpense.expense_type} expense of Tsh ${newExpense.amount} for trip ${trip.id}.`, newExpense, trip.id);
+    this.refreshCompletedTripCosts(trip?.id);
+    this.recordAudit(
+      'created expense',
+      'expense',
+      newExpense.id,
+      `Recorded ${newExpense.expense_type} expense of Tsh ${newExpense.amount} ${trip ? `for trip ${trip.id}` : 'as a standalone expense'}.`,
+      newExpense,
+      trip?.id,
+    );
     return newExpense;
   }
 
@@ -1299,12 +1302,19 @@ export class FleetDomain {
     }
 
     if (exp) {
-      this.recordAudit('deleted expense', 'expense', id, `Deleted ${exp.expense_type} expense of Tsh ${exp.amount} from trip ${exp.trip_id}.`, exp, exp.trip_id);
+      this.recordAudit(
+        'deleted expense',
+        'expense',
+        id,
+        `Deleted ${exp.expense_type} expense of Tsh ${exp.amount}${exp.trip_id ? ` from trip ${exp.trip_id}` : ' (standalone)'}.`,
+        exp,
+        exp.trip_id,
+      );
     }
     this.expenses = this.expenses.filter((e) => e.id !== id);
   }
 
-  // --- SPARE PARTS (Trip ID, Part Name, Price, Description, Timestamp) ---
+  // --- SPARE PARTS (Optional Trip, Part Name, Price, Description, Timestamp) ---
   public getSpareParts(tripId?: string): SparePart[] {
     if (tripId) {
       return this.spareParts.filter((sp) => sp.trip_id === tripId);
@@ -1313,13 +1323,8 @@ export class FleetDomain {
   }
 
   public createSparePart(data: Omit<SparePart, 'id' | 'created_at' | 'timestamp'> & { timestamp?: string }): SparePart {
-    // Foreign key check
-    const trip = this.trips.find((t) => t.id === data.trip_id);
-    if (!trip) throw new Error(`Foreign Key Violation: Trip ID ${data.trip_id} does not exist.`);
-
-    if (trip.status === 'Completed') {
-      throw new Error(`Forbidden: Cannot add roadside spare parts to completed trip ${data.trip_id}. Trip records are finalized and locked.`);
-    }
+    const trip = data.trip_id ? this.trips.find((t) => t.id === data.trip_id) : undefined;
+    if (data.trip_id && !trip) throw new Error(`Foreign Key Violation: Trip ID ${data.trip_id} does not exist.`);
 
     requireWholeAmount(data.price, 'Spare part price', { allowZero: true });
     requireText(data.part_name, 'Part / service name', 200);
@@ -1329,7 +1334,7 @@ export class FleetDomain {
 
     const now = this.nowIso();
     const newPart: SparePart = {
-      trip_id: trip.id,
+      trip_id: trip?.id,
       part_name: data.part_name.trim(),
       description: optionalText(data.description, 'Spare part description', 500) ?? '',
       replaced_by: optionalText(data.replaced_by, 'Replaced by', 200) || undefined,
@@ -1340,7 +1345,15 @@ export class FleetDomain {
     };
 
     this.spareParts.unshift(newPart);
-    this.recordAudit('created spare part', 'spare part', newPart.id, `Recorded ${newPart.part_name} costing Tsh ${newPart.price} for trip ${trip.id}.`, newPart, trip.id);
+    this.refreshCompletedTripCosts(trip?.id);
+    this.recordAudit(
+      'created spare part',
+      'spare part',
+      newPart.id,
+      `Recorded ${newPart.part_name} costing Tsh ${newPart.price} ${trip ? `for trip ${trip.id}` : 'as a standalone spare part'}.`,
+      newPart,
+      trip?.id,
+    );
     return newPart;
   }
 
@@ -1354,19 +1367,40 @@ export class FleetDomain {
     }
 
     if (sp) {
-      this.recordAudit('deleted spare part', 'spare part', id, `Deleted ${sp.part_name} costing Tsh ${sp.price} from trip ${sp.trip_id}.`, sp, sp.trip_id);
+      this.recordAudit(
+        'deleted spare part',
+        'spare part',
+        id,
+        `Deleted ${sp.part_name} costing Tsh ${sp.price}${sp.trip_id ? ` from trip ${sp.trip_id}` : ' (standalone)'}.`,
+        sp,
+        sp.trip_id,
+      );
     }
     this.spareParts = this.spareParts.filter((sp) => sp.id !== id);
   }
 
-  // --- CORRECTIONS (expenses, parts, invoices, payments) ---
-  private requireOpenTrip(tripId: string, recordLabel: string) {
-    const trip = this.trips.find((t) => t.id === tripId);
-    if (!trip) throw new Error(`Foreign Key Violation: Trip ID ${tripId} does not exist.`);
-    if (trip.status === 'Completed') {
-      throw new Error(`Forbidden: Trip ${trip.origin} to ${trip.destination} is completed; its ${recordLabel} are locked.`);
-    }
-    return trip;
+  private refreshCompletedTripCosts(tripId: string | undefined) {
+    if (!tripId) return;
+    const tripIndex = this.trips.findIndex((trip) => trip.id === tripId);
+    if (tripIndex === -1) return;
+    const trip = this.trips[tripIndex];
+    if (trip.status !== 'Completed') return;
+
+    const totalExpenses = this.expenses
+      .filter((expense) => expense.trip_id === tripId)
+      .reduce((sum, expense) => sum + Number(expense.amount), 0);
+    const totalSpareParts = this.spareParts
+      .filter((part) => part.trip_id === tripId)
+      .reduce((sum, part) => sum + Number(part.price), 0);
+    const profitLoss = Number(trip.budget_allocated || 0) - Number(trip.driver_pay || 0) - totalExpenses - totalSpareParts;
+
+    this.trips[tripIndex] = {
+      ...trip,
+      final_profit_loss: profitLoss,
+      total_expenses_cost: totalExpenses,
+      total_spare_parts_cost: totalSpareParts,
+      financial_flag: profitLoss >= 0 ? 'Profitable' : 'Loss',
+    };
   }
 
   public updateExpense(
@@ -1376,7 +1410,6 @@ export class FleetDomain {
     const index = this.expenses.findIndex((expense) => expense.id === id);
     if (index === -1) throw new Error(`Expense ${id} not found.`);
     const previous = this.expenses[index];
-    this.requireOpenTrip(previous.trip_id, 'expenses');
     const updated: Expense = {
       ...previous,
       expense_type: requireExpenseType(updates.expense_type),
@@ -1387,11 +1420,12 @@ export class FleetDomain {
     const changed = changedFields(previous, updated);
     if (changed.length === 0) return previous;
     this.expenses[index] = updated;
+    this.refreshCompletedTripCosts(updated.trip_id);
     this.recordAudit(
       'updated expense',
       'expense',
       id,
-      `Updated ${updated.expense_type} expense on trip ${updated.trip_id}; changed ${changed.join(', ')}.`,
+      `Updated ${updated.expense_type} expense${updated.trip_id ? ` on trip ${updated.trip_id}` : ' (standalone)'}; changed ${changed.join(', ')}.`,
       { before: previous, after: updated },
       updated.trip_id,
     );
@@ -1405,7 +1439,6 @@ export class FleetDomain {
     const index = this.spareParts.findIndex((part) => part.id === id);
     if (index === -1) throw new Error(`Spare part ${id} not found.`);
     const previous = this.spareParts[index];
-    this.requireOpenTrip(previous.trip_id, 'spare parts');
     const updated: SparePart = {
       ...previous,
       part_name: requireText(updates.part_name, 'Part / service name', 200),
@@ -1417,11 +1450,12 @@ export class FleetDomain {
     const changed = changedFields(previous, updated);
     if (changed.length === 0) return previous;
     this.spareParts[index] = updated;
+    this.refreshCompletedTripCosts(updated.trip_id);
     this.recordAudit(
       'updated spare part',
       'spare part',
       id,
-      `Updated ${updated.part_name} on trip ${updated.trip_id}; changed ${changed.join(', ')}.`,
+      `Updated ${updated.part_name}${updated.trip_id ? ` on trip ${updated.trip_id}` : ' (standalone)'}; changed ${changed.join(', ')}.`,
       { before: previous, after: updated },
       updated.trip_id,
     );

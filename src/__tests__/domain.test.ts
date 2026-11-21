@@ -671,6 +671,73 @@ describe('FleetDomain - Expense Management', () => {
       expect(expense.amount).toBe(500);
     });
 
+    it('allows standalone expenses and spare parts without trips', () => {
+      const expense = domain.createExpense({
+        expense_type: 'Tolls',
+        amount: 1200,
+        description: 'Standalone toll',
+      });
+      const part = domain.createSparePart({
+        part_name: 'Replacement tire',
+        price: 2500,
+        description: 'Standalone part',
+      });
+
+      expect(expense.trip_id).toBeUndefined();
+      expect(part.trip_id).toBeUndefined();
+
+      domain.updateExpense(expense.id, {
+        expense_type: 'Fuel',
+        amount: 1500,
+        description: 'Updated standalone expense',
+      });
+      domain.updateSparePart(part.id, {
+        part_name: 'Updated tire',
+        price: 3000,
+        description: 'Updated standalone part',
+      });
+
+      expect(domain.getExpenses().find((item) => item.id === expense.id)?.amount).toBe(1500);
+      expect(domain.getSpareParts().find((item) => item.id === part.id)?.price).toBe(3000);
+    });
+
+    it('allows creating and editing costs on completed trips and refreshes their finalized totals', () => {
+      domain.updateTrip(tripId, { status: 'Ongoing' });
+      domain.completeTrip(tripId, 100);
+
+      const expense = domain.createExpense({
+        trip_id: tripId,
+        expense_type: 'Fuel',
+        amount: 100,
+        description: 'Post-completion fuel adjustment',
+      });
+      const part = domain.createSparePart({
+        trip_id: tripId,
+        part_name: 'Replacement tire',
+        price: 50,
+        description: 'Post-completion part',
+      });
+
+      domain.updateExpense(expense.id, {
+        expense_type: 'Fuel',
+        amount: 150,
+        description: 'Adjusted fuel cost',
+      });
+      domain.updateSparePart(part.id, {
+        part_name: 'Replacement tire',
+        price: 100,
+        description: 'Adjusted part cost',
+      });
+
+      const trip = domain.getTrips().find((item) => item.id === tripId);
+      expect(trip?.total_expenses_cost).toBe(150);
+      expect(trip?.total_spare_parts_cost).toBe(100);
+      expect(trip?.final_profit_loss).toBe(250);
+      expect(trip?.financial_flag).toBe('Profitable');
+      expect(() => domain.deleteExpense(expense.id)).toThrow('Cannot delete expenses from completed trip');
+      expect(() => domain.deleteSparePart(part.id)).toThrow('Cannot delete spare parts from completed trip');
+    });
+
     it('should throw error for invalid expense type', () => {
       expect(() => {
         domain.createExpense({

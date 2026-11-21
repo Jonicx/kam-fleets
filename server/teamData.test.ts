@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { PoolClient } from 'pg';
 import { FleetDomain } from '../src/db/domain.ts';
-import type { Invoice } from '../src/types/database.ts';
+import type { Expense, Invoice, SparePart } from '../src/types/database.ts';
 import { saveChanges, ServerDomain } from './teamData.ts';
 
 describe('driver persistence', () => {
@@ -78,5 +78,54 @@ describe('invoice persistence', () => {
     expect(invoiceUpsert?.statement).toContain('voided_by');
     expect(invoiceUpsert?.values).toContain(actorUserId);
     expect(calls.some(({ statement }) => statement.startsWith('UPDATE invoices SET voided_by'))).toBe(false);
+  });
+});
+
+describe('standalone cost persistence', () => {
+  it('inserts standalone expenses and spare parts with a null trip id', async () => {
+    const before = new FleetDomain().getSnapshot();
+    const expense: Expense = {
+      id: '00000000-0000-4000-8000-000000000021',
+      expense_type: 'Fuel',
+      amount: 1250,
+      description: 'Standalone expense',
+      timestamp: '2026-11-21T06:00:00.000Z',
+      created_at: '2026-11-21T06:00:00.000Z',
+    };
+    const part: SparePart = {
+      id: '00000000-0000-4000-8000-000000000022',
+      part_name: 'Standalone part',
+      price: 2500,
+      description: 'Standalone spare part',
+      timestamp: '2026-11-21T06:00:00.000Z',
+      created_at: '2026-11-21T06:00:00.000Z',
+    };
+    const after = {
+      ...before,
+      expenses: [expense, ...before.expenses],
+      spareParts: [part, ...before.spareParts],
+    };
+
+    const calls: { statement: string; values: unknown[] }[] = [];
+    const query = vi.fn(async (...args: unknown[]) => {
+      calls.push({
+        statement: String(args[0]),
+        values: Array.isArray(args[1]) ? args[1] : [],
+      });
+      return { rows: [{ data_version: 1 }] };
+    });
+
+    await saveChanges(
+      { query } as unknown as PoolClient,
+      before,
+      after,
+      '00000000-0000-4000-8000-000000000023',
+      'Test User',
+    );
+
+    const expenseInsert = calls.find(({ statement }) => statement.startsWith('INSERT INTO expenses'));
+    const partInsert = calls.find(({ statement }) => statement.startsWith('INSERT INTO spare_parts'));
+    expect(expenseInsert?.values[1]).toBeNull();
+    expect(partInsert?.values[1]).toBeNull();
   });
 });

@@ -9,7 +9,7 @@ export type LedgerEntry =
   | { kind: 'spare_part'; record?: SparePart };
 
 export interface LedgerEntryValues {
-  trip_id: string;
+  trip_id?: string;
   category: ExpenseType;
   name: string;
   amount: number;
@@ -35,9 +35,8 @@ export const LedgerEntryModal: React.FC<LedgerEntryModalProps> = ({ entry, trips
   const expense = entry.kind === 'expense' ? entry.record : undefined;
   const part = entry.kind === 'spare_part' ? entry.record : undefined;
   const existing = expense || part;
-  const openTrips = trips.filter((trip) => trip.status !== 'Completed');
 
-  const [tripId, setTripId] = useState(existing?.trip_id || openTrips[0]?.id || '');
+  const [tripId, setTripId] = useState(existing?.trip_id ?? '');
   const [category, setCategory] = useState<ExpenseType>(expense?.expense_type || 'Fuel');
   const [name, setName] = useState(part?.part_name || '');
   const [amount, setAmount] = useState(existing ? String(expense ? expense.amount : part?.price ?? '') : '');
@@ -51,11 +50,10 @@ export const LedgerEntryModal: React.FC<LedgerEntryModalProps> = ({ entry, trips
     event.preventDefault();
     setError(null);
     try {
-      if (!tripId) throw new Error('Select an open trip for this entry.');
       onSave(
         entry.kind,
         {
-          trip_id: tripId,
+          trip_id: tripId || undefined,
           category,
           name: name.trim(),
           amount: Number(amount),
@@ -93,11 +91,20 @@ export const LedgerEntryModal: React.FC<LedgerEntryModalProps> = ({ entry, trips
             </div>
           )}
           <div>
-            <label htmlFor="ledger-trip" className={labelClass}>Trip </label>
-            <select id="ledger-trip" disabled={Boolean(existing)} value={tripId} onChange={(e) => setTripId(e.target.value)} className={inputClass}>
-              {existing && !openTrips.some((trip) => trip.id === existing.trip_id) && <option value={existing.trip_id}>Completed trip</option>}
-              {openTrips.length === 0 && !existing && <option value="">No open trips</option>}
-              {openTrips.map((trip) => (
+            <label htmlFor="ledger-trip" className={labelClass}>Trip (optional)</label>
+            <select
+              id="ledger-trip"
+              aria-label="Trip (optional)"
+              disabled={Boolean(existing)}
+              value={tripId}
+              onChange={(e) => setTripId(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">No trip (standalone entry)</option>
+              {existing?.trip_id && !trips.some((trip) => trip.id === existing.trip_id) && (
+                <option value={existing.trip_id}>Trip {existing.trip_id.slice(0, 8)}</option>
+              )}
+              {trips.map((trip) => (
                 <option key={trip.id} value={trip.id}>
                   {trip.origin.split(',')[0]} → {trip.destination.split(',')[0]} · {trip.truck?.license_plate || 'No truck'} · {trip.status}
                 </option>

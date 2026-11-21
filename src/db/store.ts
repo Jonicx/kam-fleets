@@ -424,7 +424,7 @@ class DatabaseStore extends FleetDomain {
       columns = ['id', 'trip_id', 'expense_type', 'amount', 'description', 'timestamp'];
       rows = this.expenses.map((e) => ({
         id: e.id.slice(0, 8) + '...',
-        trip_id: e.trip_id.slice(0, 8) + '...',
+        trip_id: e.trip_id ? `${e.trip_id.slice(0, 8)}...` : 'Standalone',
         expense_type: e.expense_type,
         amount: `$${Number(e.amount).toFixed(2)}`,
         description: e.description || '-',
@@ -434,7 +434,7 @@ class DatabaseStore extends FleetDomain {
       columns = ['id', 'trip_id', 'part_name', 'price', 'replaced_by', 'timestamp'];
       rows = this.spareParts.map((sp) => ({
         id: sp.id.slice(0, 8) + '...',
-        trip_id: sp.trip_id.slice(0, 8) + '...',
+        trip_id: sp.trip_id ? `${sp.trip_id.slice(0, 8)}...` : 'Standalone',
         part_name: sp.part_name,
         price: `$${Number(sp.price).toFixed(2)}`,
         replaced_by: sp.replaced_by || 'Field Workshop',

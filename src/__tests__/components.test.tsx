@@ -6,6 +6,7 @@ import { TrucksView } from '../components/TrucksView';
 import { DriversView } from '../components/DriversView';
 import { NewTripModal } from '../components/NewTripModal';
 import { ExpensesAndPartsView } from '../components/ExpensesAndPartsView';
+import { LedgerEntryModal } from '../components/LedgerEntryModal';
 import { dbStore } from '../db/store';
 import type { EnrichedTrip, DatabaseStats, Truck, Driver, Expense, SparePart, TruckServiceRecord } from '../types/database';
 
@@ -457,6 +458,49 @@ describe('ExpensesAndPartsView Component', () => {
     );
 
     expect(screen.getAllByText('Fuel', { exact: true }).length).toBeGreaterThan(0);
+  });
+
+  it('allows saving a standalone expense when there are no trips', () => {
+    const onSave = vi.fn();
+    render(
+      <LedgerEntryModal
+        entry={{ kind: 'expense' }}
+        trips={[]}
+        onSave={onSave}
+        onClose={vi.fn()}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Amount (TSh)'), { target: { value: '1250' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Entry' }));
+
+    expect(onSave).toHaveBeenCalledWith(
+      'expense',
+      expect.objectContaining({ trip_id: undefined, amount: 1250 }),
+      undefined,
+    );
+  });
+
+  it('allows saving a standalone spare part when there are no trips', () => {
+    const onSave = vi.fn();
+    render(
+      <LedgerEntryModal
+        entry={{ kind: 'spare_part' }}
+        trips={[]}
+        onSave={onSave}
+        onClose={vi.fn()}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Part / repair name'), { target: { value: 'Radiator' } });
+    fireEvent.change(screen.getByLabelText('Amount (TSh)'), { target: { value: '1250' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Entry' }));
+
+    expect(onSave).toHaveBeenCalledWith(
+      'spare_part',
+      expect.objectContaining({ trip_id: undefined, name: 'Radiator', amount: 1250 }),
+      undefined,
+    );
   });
 
   it('should show trip driver pay as a read-only Driver Payment ledger category', () => {
