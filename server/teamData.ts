@@ -92,7 +92,7 @@ const INVOICES: TableSpec = {
   columns: {
     id: 'id', trip_id: 'trip_id', client_id: 'client_id', driver_id: 'driver_id', invoice_number: 'invoice_number',
     amount: 'amount', issued_at: 'issued_at', due_at: 'due_at', reason: 'reason', created_at: 'created_at',
-    voided_at: 'voided_at', void_reason: 'void_reason',
+    voided_at: 'voided_at', void_reason: 'void_reason', voided_by: 'voided_by',
   },
   numeric: ['amount'],
   actorColumn: 'recorded_by',
@@ -347,10 +347,11 @@ export async function saveChanges(
         if (previousPayments.has(String(row.id))) continue;
         await insertRow(client, diff.spec, row, actorUserId);
       } else {
-        await upsertRow(client, diff.spec, row, actorUserId);
-      }
-      if (diff.spec === INVOICES && row.voided_at && !previousInvoices.get(String(row.id))?.voided_at) {
-        await client.query('UPDATE invoices SET voided_by = $2 WHERE id = $1', [row.id, actorUserId]);
+        const previousInvoice = diff.spec === INVOICES ? previousInvoices.get(String(row.id)) : undefined;
+        const persistedRow = diff.spec === INVOICES && row.voided_at && !previousInvoice?.voided_at
+          ? { ...row, voided_by: actorUserId }
+          : row;
+        await upsertRow(client, diff.spec, persistedRow, actorUserId);
       }
     }
   }

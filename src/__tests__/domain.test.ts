@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { canRunCommand, FleetDomain } from '../db/domain';
 import type { Truck, Driver, Trip, Expense, SparePart, Invoice, Payment } from '../types/database';
 
@@ -835,6 +835,10 @@ describe('FleetDomain - Invoice and Payment Management', () => {
   });
 
   describe('createPayment', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
     it('should create a payment for invoice', () => {
       const invoice = domain.createInvoice({
         trip_id: tripId,
@@ -853,6 +857,46 @@ describe('FleetDomain - Invoice and Payment Management', () => {
       expect(payment).toBeDefined();
       expect(payment.amount).toBe(1500);
       expect(payment.method).toBe('Cash');
+    });
+
+    it('allows a payment dated today in Tanzania even when its recorded time is later today', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-11-21T06:00:00.000Z'));
+
+      const invoice = domain.createInvoice({
+        trip_id: tripId,
+        amount: 1500,
+        issued_at: '2026-11-20T09:00:00.000Z',
+        due_at: '2026-12-20T09:00:00.000Z',
+      });
+
+      const payment = domain.createPayment({
+        invoice_id: invoice.id,
+        amount: 1500,
+        method: 'Cash',
+        paid_at: '2026-11-21T09:00:00.000Z',
+      });
+
+      expect(payment.paid_at).toBe('2026-11-21T09:00:00.000Z');
+    });
+
+    it('rejects a payment dated tomorrow in Tanzania', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-11-21T06:00:00.000Z'));
+
+      const invoice = domain.createInvoice({
+        trip_id: tripId,
+        amount: 1500,
+        issued_at: '2026-11-20T09:00:00.000Z',
+        due_at: '2026-12-20T09:00:00.000Z',
+      });
+
+      expect(() => domain.createPayment({
+        invoice_id: invoice.id,
+        amount: 1500,
+        method: 'Cash',
+        paid_at: '2026-11-22T09:00:00.000Z',
+      })).toThrow('Payment date cannot be in the future.');
     });
 
     it('should throw error for payment exceeding invoice balance', () => {

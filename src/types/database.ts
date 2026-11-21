@@ -153,6 +153,7 @@ export interface Invoice {
   created_at: string;
   voided_at?: string;
   void_reason?: string;
+  voided_by?: string;
 }
 
 export type PaymentMethod = 'Cash' | 'Bank transfer' | 'Mobile money' | 'Cheque' | 'Other';

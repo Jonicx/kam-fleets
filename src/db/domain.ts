@@ -32,6 +32,21 @@ import { canEditTruckServiceRecord } from '../utils/truckService.ts';
 
 export const DEFAULT_AUDIT_ACTOR = 'Local operator (unverified)';
 export const MAX_AUDIT_LOGS = 2000;
+const TANZANIA_TIME_ZONE = 'Africa/Dar_es_Salaam';
+const tanzaniaDateFormatter = new Intl.DateTimeFormat('en', {
+  timeZone: TANZANIA_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+const calendarDateInTanzania = (date: Date) => {
+  const parts = tanzaniaDateFormatter.formatToParts(date);
+  const year = parts.find((part) => part.type === 'year')?.value;
+  const month = parts.find((part) => part.type === 'month')?.value;
+  const day = parts.find((part) => part.type === 'day')?.value;
+  return `${year}-${month}-${day}`;
+};
 
 export interface DatabaseSnapshot {
   trucks: Truck[];
@@ -429,7 +444,7 @@ export class FleetDomain {
       throw new Error('Invoice issue date and due date must be valid dates.');
     }
     if (new Date(data.issued_at).getTime() > this.nowMs()) throw new Error('Invoice issue date cannot be in the future.');
-    if (new Date(data.due_at).getTime() < new Date(data.issued_at).getTime()) {
+    if (calendarDateInTanzania(new Date(data.due_at)) < calendarDateInTanzania(new Date(data.issued_at))) {
       throw new Error('Invoice due date cannot be earlier than its issue date.');
     }
     const invoiceNumber = data.invoice_number?.trim() || `KAM-${new Date(this.nowMs()).getFullYear()}-${this.newId().slice(0, 8).toUpperCase()}`;
@@ -466,7 +481,9 @@ export class FleetDomain {
     if (new Date(data.paid_at).getTime() < new Date(invoice.issued_at).getTime()) {
       throw new Error('Payment date cannot be earlier than the invoice issue date.');
     }
-    if (new Date(data.paid_at).getTime() > this.nowMs()) throw new Error('Payment date cannot be in the future.');
+    if (calendarDateInTanzania(new Date(data.paid_at)) > calendarDateInTanzania(new Date(this.nowMs()))) {
+      throw new Error('Payment date cannot be in the future.');
+    }
     if (data.reference && data.reference.length > 120) throw new Error('Payment reference must be 120 characters or fewer.');
     const paidToDate = this.payments
       .filter((payment) => payment.invoice_id === invoice.id && !payment.reversed_at)
